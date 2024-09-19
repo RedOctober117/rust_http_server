@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Index};
+use std::fmt::Display;
 
 pub struct HttpRequest {
     method: HttpMethodEnum,
@@ -11,7 +11,7 @@ pub enum HttpMethodEnum {
     POST,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HttpSchemeEnum {
     Unknown,
     HTTP,
@@ -27,8 +27,26 @@ pub struct Uri {
 }
 
 impl Uri {
-    /// Shittiest parser know to man. Christ, just get a whiteboard and figure
-    /// it out man.
+    pub fn scheme(&self) -> HttpSchemeEnum {
+        self.scheme
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn query(&self) -> Option<&str> {
+        match &self.query {
+            Some(s) => Some(s),
+            None => None,
+        }
+    }
+
+    /// Fixed!
     pub fn parse_tokens(tokenizer: &mut Tokenizer) -> Self {
         let mut scheme = HttpSchemeEnum::Unknown;
         let mut host = String::new();
@@ -437,4 +455,16 @@ impl Display for Tokenizer {
         }
         write!(f, "{}", out)
     }
+}
+
+#[test]
+fn test_parse_easy() {
+    let test_uri = String::from("https://telemakos.io");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
+    assert_eq!(parsed_uri.host(), "telemakos.io");
+    assert_eq!(parsed_uri.port(), 443);
+    assert_eq!(parsed_uri.query(), None);
 }

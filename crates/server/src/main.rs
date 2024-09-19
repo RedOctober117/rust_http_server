@@ -1,6 +1,4 @@
-use std::net::TcpListener;
-
-use server::{GlobalState, HttpRequest, Tag, Tokenizer, Uri};
+use server::{HttpSchemeEnum, Tag, Tokenizer, Uri};
 
 fn main() {
     let test_uri = String::from("https://telemakos.io/test?test_query=#fragment-here");
@@ -32,4 +30,12 @@ fn main() {
     // }
     // stream.write(&[1])?;
     // Ok(())
+}
+#[test]
+fn test_parse_easy() {
+    let test_uri = String::from("https://telemakos.io");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS)
 }
