@@ -3,26 +3,15 @@ use std::net::TcpListener;
 use server::{GlobalState, HttpRequest, Tag, Tokenizer, Uri};
 
 fn main() {
-    let test_string = String::from("https://telemakos.io:443/test");
-    let mut tokenizer = Tokenizer::new(test_string.clone());
-    let mut tokens = vec![];
-    println!("Tokenizing {} . . .", test_string);
-    loop {
-        let next = tokenizer.next();
+    let test_uri = String::from("https://telemakos.io:443/test?test_query=#fragment-here");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-        tokens.push(next);
-        if tokenizer.state() == GlobalState::EndOfURI {
-            break;
-        }
-    }
+    println!("Tokenizing . . . \n{}", tokenizer);
 
-    for token in tokens {
-        println!(
-            "{:?}: {}",
-            token.tag(),
-            &test_string[token.location().start()..token.location().end()]
-        )
-    }
+    println!("Parsing {} . . .", test_uri);
+
+    println!("{}", Uri::parse_tokens(&mut tokenizer));
+
     // loop {``
     //     let token = tokenizer.next();
     //     if token.tag() == Tag::EndOfURI {

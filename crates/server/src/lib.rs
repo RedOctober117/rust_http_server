@@ -28,42 +28,44 @@ pub struct Uri {
 impl Uri {
     /// Shittiest parser know to man. Christ, just get a whiteboard and figure
     /// it out man.
-    pub fn parse_buffer(buffer: &[u8; 8000]) -> Self {
-        let mut buffer_as_string = String::new();
-        for byte in buffer {
-            if byte.clone() as char != '\0' {
-                buffer_as_string.push(*byte as char);
-            }
+    pub fn parse_tokens(tokenizer: &mut Tokenizer) -> Self {
+        let mut scheme = HttpSchemeEnum::HTTP;
+        let mut host = String::new();
+        let mut port = 0 as u16;
+        let mut query = None;
+
+        let tokens = tokenizer.tokens();
+
+        for token in tokens {
+            match token.tag() {
+                Tag::Scheme => {
+                    match &tokenizer.buffer[token.location().start()..token.location().end()] {
+                        "http" => HttpSchemeEnum::HTTP,
+                        "https" => HttpSchemeEnum::HTTPS,
+                        &_ => panic!("Invalid token passed somehow."),
+                    };
+                }
+                Tag::Authority => {
+                    host = String::from(
+                        &tokenizer.buffer[token.location().start()..token.location().end()],
+                    );
+                }
+                Tag::Port => {
+                    port = String::from(
+                        &tokenizer.buffer[token.location().start()..token.location().end()],
+                    )
+                    .parse::<u16>()
+                    .ok()
+                    .unwrap();
+                }
+                Tag::Query => {
+                    query = Some(String::from(
+                        &tokenizer.buffer[token.location().start()..token.location().end()],
+                    ));
+                }
+                _ => continue,
+            };
         }
-
-        let scheme_split: Vec<_> = buffer_as_string.split("://").collect();
-        let host_and_port_split: Vec<_> = scheme_split[1].split("/").collect();
-
-        let scheme = match scheme_split[0] {
-            "http" => HttpSchemeEnum::HTTP,
-            "https" => HttpSchemeEnum::HTTPS,
-            &_ => panic!("Couldn't parse URI"),
-        };
-        let host: String = String::from(host_and_port_split[0]);
-        let port: u16 = match host_and_port_split[0].find(":") {
-            Some(idx) => host_and_port_split[0]
-                .split_at(idx)
-                .1
-                .parse()
-                .unwrap_or(match scheme {
-                    HttpSchemeEnum::HTTP => 80,
-                    HttpSchemeEnum::HTTPS => 443,
-                }),
-            None => match scheme {
-                HttpSchemeEnum::HTTP => 80,
-                HttpSchemeEnum::HTTPS => 443,
-            },
-        };
-        let query: Option<String> = match host_and_port_split[1].find("?") {
-            Some(idx) => Some(String::from(host_and_port_split[1].split_at(idx).1)),
-            None => None,
-        };
-
         Self {
             scheme,
             host,
@@ -75,7 +77,11 @@ impl Uri {
 
 impl Display for Uri {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} {:?} {:?}", self.scheme, self.host, self.port)
+        write!(
+            f,
+            " [{:?}]  [{:?}] [{:?}]",
+            self.scheme, self.host, self.port
+        )
     }
 }
 
@@ -135,6 +141,7 @@ impl Location {
     }
 }
 
+#[derive(Clone)]
 pub struct Tokenizer {
     buffer: String,
     index: usize,
@@ -190,6 +197,23 @@ impl Tokenizer {
         self.state
     }
 
+    pub fn tokens(&mut self) -> Vec<Token> {
+        let mut tokens: Vec<Token> = vec![];
+        self.index = 0;
+        self.state = GlobalState::Start;
+
+        loop {
+            let next = self.next();
+
+            tokens.push(next);
+            if self.state == GlobalState::EndOfURI {
+                break;
+            }
+        }
+
+        tokens
+    }
+
     pub fn next(&mut self) -> Token {
         let mut result = Token::new(Tag::Unknown, Location::new(self.index, self.index + 1));
         let mut local_state = LocalState::Valid;
@@ -209,7 +233,7 @@ impl Tokenizer {
                     GlobalState::Query => Tag::Query,
                     GlobalState::Fragment => Tag::Fragment,
                     GlobalState::Invalid => Tag::Invalid,
-                    GlobalState::EndOfURI => todo!(),
+                    GlobalState::EndOfURI => continue,
                 };
                 result.location.end_idx = self.index;
                 self.state = GlobalState::EndOfURI;
@@ -382,5 +406,24 @@ impl Tokenizer {
             }
         }
         result
+    }
+}
+
+impl Display for Tokenizer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut clone: Tokenizer = self.clone();
+        let mut out = String::new();
+        for token in clone.tokens() {
+            out.push_str(
+                format!(
+                    "Tag: {:?}; Location: [{:?}, {:?}]\n",
+                    token.tag(),
+                    token.location().start(),
+                    token.location().end()
+                )
+                .as_str(),
+            );
+        }
+        write!(f, "{}", out)
     }
 }
