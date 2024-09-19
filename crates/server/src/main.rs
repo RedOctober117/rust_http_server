@@ -3,7 +3,7 @@ use std::net::TcpListener;
 use server::{GlobalState, HttpRequest, Tag, Tokenizer, Uri};
 
 fn main() {
-    let test_uri = String::from("https://telemakos.io:443/test?test_query=#fragment-here");
+    let test_uri = String::from("https://telemakos.io/test?test_query=#fragment-here");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
     println!("Tokenizing . . . \n{}", tokenizer);

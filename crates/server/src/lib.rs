@@ -13,6 +13,7 @@ pub enum HttpMethodEnum {
 
 #[derive(Debug)]
 pub enum HttpSchemeEnum {
+    Unknown,
     HTTP,
     HTTPS,
 }
@@ -29,7 +30,7 @@ impl Uri {
     /// Shittiest parser know to man. Christ, just get a whiteboard and figure
     /// it out man.
     pub fn parse_tokens(tokenizer: &mut Tokenizer) -> Self {
-        let mut scheme = HttpSchemeEnum::HTTP;
+        let mut scheme = HttpSchemeEnum::Unknown;
         let mut host = String::new();
         let mut port = 0 as u16;
         let mut query = None;
@@ -37,35 +38,45 @@ impl Uri {
         let tokens = tokenizer.tokens();
 
         for token in tokens {
+            let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
+
             match token.tag() {
                 Tag::Scheme => {
-                    match &tokenizer.buffer[token.location().start()..token.location().end()] {
-                        "http" => HttpSchemeEnum::HTTP,
-                        "https" => HttpSchemeEnum::HTTPS,
+                    // Matches scheme and sets the default ports in case a
+                    // Tag::Port Token is not generated from the raw URI.
+                    match token_str {
+                        "http" => {
+                            scheme = HttpSchemeEnum::HTTP;
+                            port = 80;
+                        }
+                        "https" => {
+                            scheme = HttpSchemeEnum::HTTPS;
+                            port = 443;
+                        }
                         &_ => panic!("Invalid token passed somehow."),
                     };
                 }
                 Tag::Authority => {
-                    host = String::from(
-                        &tokenizer.buffer[token.location().start()..token.location().end()],
-                    );
+                    host = String::from(token_str);
                 }
                 Tag::Port => {
-                    port = String::from(
-                        &tokenizer.buffer[token.location().start()..token.location().end()],
-                    )
-                    .parse::<u16>()
-                    .ok()
-                    .unwrap();
+                    if token_str.len() > 0 {
+                        port = String::from(token_str).parse::<u16>().ok().unwrap();
+                        continue;
+                    }
+                    port = match scheme {
+                        HttpSchemeEnum::HTTP => 80 as u16,
+                        HttpSchemeEnum::HTTPS => 443 as u16,
+                        HttpSchemeEnum::Unknown => todo!(),
+                    }
                 }
                 Tag::Query => {
-                    query = Some(String::from(
-                        &tokenizer.buffer[token.location().start()..token.location().end()],
-                    ));
+                    query = Some(String::from(token_str));
                 }
                 _ => continue,
             };
         }
+
         Self {
             scheme,
             host,
