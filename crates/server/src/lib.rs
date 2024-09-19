@@ -427,7 +427,7 @@ impl Tokenizer {
                 GlobalState::UserInfo => todo!(),
                 GlobalState::Invalid => {
                     panic!(
-                        "Could not parse {} at index {}",
+                        "Could not parse '{}' at index {}",
                         buffer_as_chars[self.index], self.index
                     )
                 }
@@ -468,3 +468,149 @@ fn test_parse_easy() {
     assert_eq!(parsed_uri.port(), 443);
     assert_eq!(parsed_uri.query(), None);
 }
+
+#[test]
+fn test_parse_with_port() {
+    let test_uri = String::from("https://telemakos.io:600");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
+    assert_eq!(parsed_uri.host(), "telemakos.io");
+    assert_eq!(parsed_uri.port(), 600);
+    assert_eq!(parsed_uri.query(), None);
+}
+
+#[test]
+fn test_parse_with_port_and_query() {
+    let test_uri = String::from("https://telemakos.io:600/?test_query");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
+    assert_eq!(parsed_uri.host(), "telemakos.io");
+    assert_eq!(parsed_uri.port(), 600);
+    assert_eq!(parsed_uri.query(), Some("test_query"));
+}
+
+#[test]
+fn test_parse_with_port_and_query_and_fragment() {
+    let test_uri = String::from("https://telemakos.io:600/?test_query#bruh-fragment");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
+    assert_eq!(parsed_uri.host(), "telemakos.io");
+    assert_eq!(parsed_uri.port(), 600);
+    assert_eq!(parsed_uri.query(), Some("test_query"));
+}
+
+#[test]
+fn test_tokenizer() {
+    let test_uri = String::from("https://telemakos.io");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let tokens = tokenizer.tokens();
+    for token in tokens {
+        let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
+        match token.tag() {
+            Tag::Scheme => assert_eq!(token_str, "https"),
+            Tag::Authority => assert_eq!(token_str, "telemakos.io"),
+            _ => panic!("failed on tag {:?}", token.tag()),
+        }
+    }
+}
+
+#[test]
+fn test_tokenizer_port() {
+    let test_uri = String::from("https://telemakos.io:90");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let tokens = tokenizer.tokens();
+    for token in tokens {
+        let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
+        match token.tag() {
+            Tag::Scheme => assert_eq!(token_str, "https"),
+            Tag::Authority => assert_eq!(token_str, "telemakos.io"),
+            Tag::Port => assert_eq!(token_str, "90"),
+            _ => panic!("failed on tag {:?}", token.tag()),
+        }
+    }
+}
+
+#[test]
+fn test_tokenizer_port_query() {
+    let test_uri = String::from("https://telemakos.io:90/?kendric_tpabf");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let tokens = tokenizer.tokens();
+    for token in tokens {
+        let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
+        match token.tag() {
+            Tag::Scheme => assert_eq!(token_str, "https"),
+            Tag::Authority => assert_eq!(token_str, "telemakos.io"),
+            Tag::Port => assert_eq!(token_str, "90"),
+            Tag::Query => assert_eq!(token_str, "kendric_tpabf"),
+            Tag::Path => assert_eq!(token_str, ""),
+            _ => panic!("failed on tag {:?}", token.tag()),
+        }
+    }
+}
+
+#[test]
+fn test_tokenizer_port_query_fragment() {
+    let test_uri = String::from("https://telemakos.io:90/?kendric_tpabf#bruh!");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    let tokens = tokenizer.tokens();
+    for token in tokens {
+        let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
+        match token.tag() {
+            Tag::Scheme => assert_eq!(token_str, "https"),
+            Tag::Authority => assert_eq!(token_str, "telemakos.io"),
+            Tag::Port => assert_eq!(token_str, "90"),
+            Tag::Query => assert_eq!(token_str, "kendric_tpabf"),
+            Tag::Path => assert_eq!(token_str, ""),
+            Tag::Fragment => assert_eq!(token_str, "bruh!"),
+            _ => panic!("failed on tag {:?}", token.tag()),
+        }
+    }
+}
+
+#[test]
+#[should_panic]
+fn test_tokenizer_invalid_scheme() {
+    let test_uri = String::from("htLtps://telemakos.io:90/?kendric_tpabf#bruh!");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    _ = tokenizer.tokens();
+}
+
+#[test]
+#[should_panic]
+fn test_tokenizer_invalid_auth() {
+    let test_uri = String::from("https://tele%makos.io:90/?kendric_tpabf#bruh!");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    _ = tokenizer.tokens();
+}
+
+#[test]
+#[should_panic]
+fn test_tokenizer_invalid_port() {
+    let test_uri = String::from("https://telemakos.io:90a/?kendric_tpabf#bruh!");
+    let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+    _ = tokenizer.tokens();
+}
+
+// Need a test for invalid path, query, and fragment once its implemented in the tokenizer
+
+// #[test]
+// #[should_panic]
+// fn test_tokenizer_invalid() {
+//     let test_uri = String::from("https://telemakos.io:90/?kendric_tpabf#bruh!");
+//     let mut tokenizer = Tokenizer::new(test_uri.clone());
+
+//     _ = tokenizer.tokens();
+// }
