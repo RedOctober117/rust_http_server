@@ -22,7 +22,7 @@ pub struct Uri {
     scheme: HttpSchemeEnum,
     host: String,
     port: u16,
-    query: Option<[u8; 8000]>,
+    query: Option<String>,
 }
 
 impl Uri {
@@ -46,25 +46,29 @@ impl Uri {
         };
         let host: String = String::from(host_and_port_split[0]);
         let port: u16 = match host_and_port_split[0].find(":") {
-            Some(_) => host_and_port_split[0]
-                .split(":")
-                .nth(1)
-                .unwrap()
+            Some(idx) => host_and_port_split[0]
+                .split_at(idx)
+                .1
                 .parse()
-                .ok()
-                .unwrap(),
+                .unwrap_or(match scheme {
+                    HttpSchemeEnum::HTTP => 80,
+                    HttpSchemeEnum::HTTPS => 443,
+                }),
             None => match scheme {
                 HttpSchemeEnum::HTTP => 80,
                 HttpSchemeEnum::HTTPS => 443,
             },
         };
-        // let query: Option<String> = None;
+        let query: Option<String> = match host_and_port_split[1].find("?") {
+            Some(idx) => Some(String::from(host_and_port_split[1].split_at(idx).1)),
+            None => None,
+        };
 
         Self {
             scheme,
             host,
             port,
-            query: None,
+            query,
         }
 
         // if let Some(scheme) = buffer_as_string.find("https") {
