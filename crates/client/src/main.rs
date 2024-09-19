@@ -6,7 +6,7 @@ fn main() -> std::io::Result<()> {
 
     let string = "https://telemakos.io/test?test_query";
     println!("Sending {} . . .", string);
-    stream.write(&string.as_bytes())?;
+    stream.write_all(string.as_bytes())?;
     // stream.read(&mut [0; 128])?;
     Ok(())
 }
