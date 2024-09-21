@@ -8,7 +8,7 @@ fn main() {
 
     println!("Parsing {} . . .", test_uri);
 
-    println!("{}", Uri::parse_tokens(&mut tokenizer));
+    println!("{}", Uri::parse_tokens(&mut tokenizer).ok().unwrap());
 
     // loop {``
     //     let token = tokenizer.next();

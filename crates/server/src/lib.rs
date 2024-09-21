@@ -1,3 +1,4 @@
+use core::{error, panic};
 use std::fmt::Display;
 
 pub struct HttpRequest {
@@ -47,13 +48,16 @@ impl Uri {
     }
 
     /// Fixed!
-    pub fn parse_tokens(tokenizer: &mut Tokenizer) -> Self {
+    pub fn parse_tokens(tokenizer: &mut Tokenizer) -> Result<Self, InvalidToken> {
         let mut scheme = HttpSchemeEnum::Unknown;
         let mut host = String::new();
         let mut port = 0 as u16;
         let mut query = None;
 
-        let tokens = tokenizer.tokens();
+        let tokens = match tokenizer.tokens() {
+            Ok(t) => t,
+            Err(e) => return Err(e),
+        };
 
         for token in tokens {
             let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
@@ -95,12 +99,12 @@ impl Uri {
             };
         }
 
-        Self {
+        Ok(Self {
             scheme,
             host,
             port,
             query,
-        }
+        })
     }
 }
 
@@ -132,11 +136,20 @@ impl Token {
     pub fn location(&self) -> Location {
         self.location
     }
+
+    pub fn update_tag_and_end(&mut self, tag: Tag, end_idx: usize) {
+        self.tag = tag;
+        self.location.end_idx = end_idx;
+    }
+    pub fn set_end(&mut self, end: usize) {
+        self.location.end_idx = end;
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Tag {
-    Unknown,
+    Start,
+    End,
 
     Scheme,
     UserInfo,
@@ -174,32 +187,30 @@ impl Location {
 pub struct Tokenizer {
     buffer: String,
     index: usize,
-    state: GlobalState,
+    processing_tag: Tag,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum GlobalState {
-    // Only needs to handle single lines.
-    // Relevant characters:
-    // :// : / ?
-    // URI = scheme ":" ["//" [userinfo "@"] host [":"]] path ["?" query] ["#" fragment]
-    Start,
-    Scheme,
-    Authority,
-    UserInfo,
-    Port,
-    Path,
-    Query,
-    Fragment,
+// #[derive(PartialEq, Debug, Clone, Copy)]
+// pub enum Tag {
+//     // Only needs to handle single lines.
+//     // Relevant characters:
+//     // :// : / ?
+//     // URI = scheme ":" ["//" [userinfo "@"] host [":"]] path ["?" query] ["#" fragment]
+//     Start,
+//     Scheme,
+//     Authority,
+//     UserInfo,
+//     Port,
+//     Path,
+//     Query,
+//     Fragment,
 
-    EndOfURI,
-    Invalid,
-}
+//     EndOfURI,
+// }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum LocalState {
-    Valid,
-    Invalid,
+    InToken,
     EndOfToken,
 }
 
@@ -252,122 +263,103 @@ impl Tokenizer {
         Self {
             buffer,
             index: 0,
-            state: GlobalState::Start,
+            processing_tag: Tag::Start,
         }
     }
 
-    pub fn state(&self) -> GlobalState {
-        self.state
+    pub fn current_tag(&self) -> Tag {
+        self.processing_tag
     }
 
-    pub fn tokens(&mut self) -> Vec<Token> {
+    pub fn tokens(&mut self) -> Result<Vec<Token>, InvalidToken> {
         let mut tokens: Vec<Token> = vec![];
         self.index = 0;
-        self.state = GlobalState::Start;
+        self.processing_tag = Tag::Start;
 
         loop {
-            let next = self.next();
+            match self.next() {
+                Ok(token) => tokens.push(token),
+                Err(e) => return Err(e),
+            };
 
-            tokens.push(next);
-            if self.state == GlobalState::EndOfURI {
+            // tokens.push(next);
+            if self.processing_tag == Tag::End {
                 break;
             }
         }
 
-        tokens
+        Ok(tokens)
     }
 
-    pub fn next(&mut self) -> Token {
-        let mut result = Token::new(Tag::Unknown, Location::new(self.index, self.index + 1));
-        let mut local_state = LocalState::Valid;
+    pub fn next(&mut self) -> Result<Token, InvalidToken> {
+        let mut result = Token::new(
+            self.processing_tag,
+            Location::new(self.index, self.index + 1),
+        );
+        let mut local_state = LocalState::InToken;
 
-        let buffer_as_chars: Vec<char> = self.buffer.char_indices().map(|(_, b)| b).collect();
+        let buffer_as_chars: Vec<char> = self.buffer.chars().map(|c| c).collect();
 
-        while local_state == LocalState::Valid && local_state != LocalState::EndOfToken {
-            // Revisit this section ######################
+        while local_state != LocalState::EndOfToken {
             if self.index == buffer_as_chars.len() {
-                result.tag = match self.state {
-                    GlobalState::Start => todo!(),
-                    GlobalState::Scheme => Tag::Scheme,
-                    GlobalState::Authority => Tag::Authority,
-                    GlobalState::UserInfo => Tag::UserInfo,
-                    GlobalState::Port => Tag::Port,
-                    GlobalState::Path => Tag::Path,
-                    GlobalState::Query => Tag::Query,
-                    GlobalState::Fragment => Tag::Fragment,
-                    GlobalState::Invalid => Tag::Invalid,
-                    GlobalState::EndOfURI => continue,
-                };
-                result.location.end_idx = self.index;
-                self.state = GlobalState::EndOfURI;
+                result.set_end(self.index);
+                self.processing_tag = Tag::End;
 
-                return result;
+                return Ok(result);
             }
-            // ###########################################
-            // println!("Checking state {:?}. . .", self.state);
 
-            match self.state {
-                GlobalState::Start => match buffer_as_chars[self.index] {
+            match self.processing_tag {
+                Tag::Start => match buffer_as_chars[self.index] {
                     'h' => {
+                        result.tag = Tag::Scheme;
                         result.location.start_idx = self.index;
-                        self.state = GlobalState::Scheme;
+                        self.processing_tag = Tag::Scheme;
                         self.index += 1;
                     }
                     _ => {
-                        result.tag = Tag::Invalid;
-                        result.location.end_idx = self.index;
-                        local_state = LocalState::Invalid;
-                        self.state = GlobalState::Invalid;
-                        // self.index += 1;
+                        return Err(InvalidToken {});
                     }
                 },
-                GlobalState::Scheme => match buffer_as_chars[self.index] {
+                Tag::Scheme => match buffer_as_chars[self.index] {
                     // Valid characters; continue
                     't' | 'p' | 's' => self.index += 1,
                     // Post-delimiter; set result tag to current section,
                     // result end location to current index, local state
-                    // to EndOfToken, GlobalState to the next section
+                    // to EndOfToken, Tag to the next section
                     // (Authority)
                     ':' => {
-                        result.tag = Tag::Scheme;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Authority;
+                        self.processing_tag = Tag::Authority;
                         self.index += 3; // skip ://
                     }
                     // Non valid characters; set token to invalid, token
                     // location, local state to invalid, and global state to
                     // invalid.
                     _ => {
-                        result.tag = Tag::Invalid;
-                        result.location.end_idx = self.index;
-                        local_state = LocalState::Invalid;
-                        self.state = GlobalState::Invalid;
+                        return Err(InvalidToken {});
                     }
                 },
-                GlobalState::Authority => match buffer_as_chars[self.index] {
+                Tag::Authority => match buffer_as_chars[self.index] {
                     // Post-delimiter; set tag to previous section, set
                     // location, set state to end of token. global state is
                     // already in the correct state. increment index.
                     '@' => {
-                        result.tag = Tag::UserInfo;
-                        result.location.end_idx = self.index;
+                        result.update_tag_and_end(Tag::UserInfo, self.index);
                         local_state = LocalState::EndOfToken;
-                        // self.state = GlobalState::Authority; // alread in this state
+                        // self.state = Tag::Authority; // alread in this state
                         self.index += 1
                     }
                     ':' => {
-                        result.tag = Tag::Authority;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Port;
+                        self.processing_tag = Tag::Port;
                         self.index += 1;
                     }
                     '/' => {
-                        result.tag = Tag::Authority;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Path;
+                        self.processing_tag = Tag::Path;
                         self.index += 1;
                     }
                     '['
@@ -392,61 +384,49 @@ impl Tokenizer {
                     | ';'
                     | '='
                     | '?' => self.index += 1,
-                    _ => {
-                        result.tag = Tag::Invalid;
-                        result.location.end_idx = self.index;
-                        local_state = LocalState::Invalid;
-                        self.state = GlobalState::Invalid;
-                    }
+                    _ => return Err(InvalidToken {}),
                 },
-                GlobalState::Port => match buffer_as_chars[self.index] {
+                Tag::Port => match buffer_as_chars[self.index] {
                     // Ports are only valid unsigned ints.
                     '0'..='9' => self.index += 1,
                     // Pre-delimiter. '/' begins the path portion. set this
                     // token as port and prepare for path.
                     '/' => {
-                        result.tag = Tag::Port;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Path;
+                        self.processing_tag = Tag::Path;
                         self.index += 1;
                     }
                     _ => {
-                        result.tag = Tag::Invalid;
-                        result.location.end_idx = self.index;
-                        local_state = LocalState::Invalid;
-                        self.state = GlobalState::Invalid;
+                        return Err(InvalidToken {});
                     }
                 },
-                GlobalState::Path => match buffer_as_chars[self.index] {
+                Tag::Path => match buffer_as_chars[self.index] {
                     // Pre-delimiter. send path and prepare for query.
                     '?' => {
-                        result.tag = Tag::Path;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Query;
+                        self.processing_tag = Tag::Query;
                         self.index += 1;
                     }
                     // If no '?', the check for fragment. Pre-delimiter, send
                     // path and prep fragment.
                     '#' => {
-                        result.tag = Tag::Path;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Fragment;
+                        self.processing_tag = Tag::Fragment;
                         self.index += 1;
                     }
                     // Everything else is valid until I feel like getting the
                     // ASCII in here.
                     _ => self.index += 1,
                 },
-                GlobalState::Query => match buffer_as_chars[self.index] {
+                Tag::Query => match buffer_as_chars[self.index] {
                     // If fragment, send query, prep frag.
                     '#' => {
-                        result.tag = Tag::Query;
-                        result.location.end_idx = self.index;
+                        result.set_end(self.index);
                         local_state = LocalState::EndOfToken;
-                        self.state = GlobalState::Fragment;
+                        self.processing_tag = Tag::Fragment;
                         self.index += 1;
                     }
                     // Same thing; when I feel like it.
@@ -454,21 +434,15 @@ impl Tokenizer {
                 },
 
                 // Again, when I have energy.
-                GlobalState::Fragment => match buffer_as_chars[self.index] {
+                Tag::Fragment => match buffer_as_chars[self.index] {
                     _ => self.index += 1,
                 },
-
-                GlobalState::UserInfo => todo!(),
-                GlobalState::Invalid => {
-                    panic!(
-                        "Could not parse '{}' at index {}",
-                        buffer_as_chars[self.index], self.index
-                    )
-                }
-                GlobalState::EndOfURI => todo!(),
+                Tag::UserInfo => todo!(),
+                Tag::End => todo!(),
+                Tag::Invalid => todo!(),
             }
         }
-        result
+        Ok(result)
     }
 }
 
@@ -476,7 +450,11 @@ impl Display for Tokenizer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut clone: Tokenizer = self.clone();
         let mut out = String::new();
-        for token in clone.tokens() {
+        let tokens = match clone.tokens() {
+            Ok(t) => t,
+            Err(_) => panic!("Cannot tokenize for Display"),
+        };
+        for token in tokens {
             out.push_str(
                 format!(
                     "Tag: {:?}; Location: [{:?}, {:?}]\n",
@@ -491,12 +469,15 @@ impl Display for Tokenizer {
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub struct InvalidToken {}
+
 #[test]
 fn test_parse_easy() {
     let test_uri = String::from("https://telemakos.io");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer).ok().unwrap();
     assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
     assert_eq!(parsed_uri.host(), "telemakos.io");
     assert_eq!(parsed_uri.port(), 443);
@@ -508,7 +489,7 @@ fn test_parse_with_port() {
     let test_uri = String::from("https://telemakos.io:600");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer).ok().unwrap();
     assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
     assert_eq!(parsed_uri.host(), "telemakos.io");
     assert_eq!(parsed_uri.port(), 600);
@@ -520,7 +501,7 @@ fn test_parse_with_port_and_query() {
     let test_uri = String::from("https://telemakos.io:600/?test_query");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer).ok().unwrap();
     assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
     assert_eq!(parsed_uri.host(), "telemakos.io");
     assert_eq!(parsed_uri.port(), 600);
@@ -532,7 +513,7 @@ fn test_parse_with_port_and_query_and_fragment() {
     let test_uri = String::from("https://telemakos.io:600/?test_query#bruh-fragment");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let parsed_uri = Uri::parse_tokens(&mut tokenizer);
+    let parsed_uri = Uri::parse_tokens(&mut tokenizer).ok().unwrap();
     assert_eq!(parsed_uri.scheme(), HttpSchemeEnum::HTTPS);
     assert_eq!(parsed_uri.host(), "telemakos.io");
     assert_eq!(parsed_uri.port(), 600);
@@ -544,7 +525,7 @@ fn test_tokenizer() {
     let test_uri = String::from("https://telemakos.io");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let tokens = tokenizer.tokens();
+    let tokens = tokenizer.tokens().ok().unwrap();
     for token in tokens {
         let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
         match token.tag() {
@@ -560,7 +541,7 @@ fn test_tokenizer_port() {
     let test_uri = String::from("https://telemakos.io:90");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let tokens = tokenizer.tokens();
+    let tokens = tokenizer.tokens().ok().unwrap();
     for token in tokens {
         let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
         match token.tag() {
@@ -577,7 +558,7 @@ fn test_tokenizer_port_query() {
     let test_uri = String::from("https://telemakos.io:90/?kendric_tpabf");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let tokens = tokenizer.tokens();
+    let tokens = tokenizer.tokens().ok().unwrap();
     for token in tokens {
         let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
         match token.tag() {
@@ -596,7 +577,7 @@ fn test_tokenizer_port_query_fragment() {
     let test_uri = String::from("https://telemakos.io:90/?kendric_tpabf#bruh!");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    let tokens = tokenizer.tokens();
+    let tokens = tokenizer.tokens().ok().unwrap();
     for token in tokens {
         let token_str = &tokenizer.buffer[token.location().start()..token.location().end()];
         match token.tag() {
@@ -612,30 +593,36 @@ fn test_tokenizer_port_query_fragment() {
 }
 
 #[test]
-#[should_panic]
 fn test_tokenizer_invalid_scheme() {
     let test_uri = String::from("htLtps://telemakos.io:90/?kendric_tpabf#bruh!");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    _ = tokenizer.tokens();
+    match tokenizer.tokens() {
+        Ok(_) => assert!(false),
+        Err(e) => assert_eq!(e, InvalidToken {}),
+    };
 }
 
 #[test]
-#[should_panic]
 fn test_tokenizer_invalid_auth() {
     let test_uri = String::from("https://tele%makos.io:90/?kendric_tpabf#bruh!");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    _ = tokenizer.tokens();
+    match tokenizer.tokens() {
+        Ok(_) => assert!(false),
+        Err(e) => assert_eq!(e, InvalidToken {}),
+    };
 }
 
 #[test]
-#[should_panic]
 fn test_tokenizer_invalid_port() {
     let test_uri = String::from("https://telemakos.io:90a/?kendric_tpabf#bruh!");
     let mut tokenizer = Tokenizer::new(test_uri.clone());
 
-    _ = tokenizer.tokens();
+    match tokenizer.tokens() {
+        Ok(_) => assert!(false),
+        Err(e) => assert_eq!(e, InvalidToken {}),
+    };
 }
 
 // Need a test for invalid path, query, and fragment once its implemented in the tokenizer
