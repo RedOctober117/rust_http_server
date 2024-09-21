@@ -247,16 +247,24 @@ pub enum LocalState {
 // an ending token will just be delim:delim, ie., slash:slash for a path like example.com/this/path/
 // the location will exclude the index of both delimiters, including only the
 // items between.
+// A URI is composed from an allowed set of ASCII characters consisting of
+// reserved characters:
+//                 gen-delims:  :, /, ?, #, [, ], and @;
+//                 sub-delims:  !, $, &, ', (, ), *, +, ,, ;, =
+//      unreserved characters:  A..z, 0..9, -, ., _, ~
+//        encoding characters:  %xx, where x is a hex value, ie., 0..F
 
-// section      range                 valid contents
-// scheme?:     empty-:               A..z, 0..9, +, ., -,
-// authority:   //-/                  !, $, &, ', (, ), *, ,, ;, =
-// userinfo?:   //-@                  A..z, +, !, $, &, ', (, ), *, ,, ;, =, :
-// host:        //-:, //-/, @-:       A..z, +, !, $, &, ', (, ), *, ,, ;, = [, ]
-// port:        :-/                   0..9, +
-// path:        /-/ or empty          A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /
-// query:       ?-?, ?-#, ?-empty     A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /, ?
-// fragment:    #-#, #-empty          A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /, ?
+// section              range                           format (in regex)
+// scheme:              start-:                         <A..z>*[A..z 0..9 + . -]
+// authority:           //[userinfo][host][path]/
+//      userinfo?:      //-@                            <A..z>*
+//      host:           //-:, //-/, @-:
+// port:                :-/                             <0..9>*
+// path:                /-/, /-empty
+// query:               ?-?, ?-#, ?-empty
+// fragment:            #-#, #-empty
+
+// use this https://datatracker.ietf.org/doc/html/rfc3986
 
 impl Tokenizer {
     pub fn new(buffer: String) -> Self {
