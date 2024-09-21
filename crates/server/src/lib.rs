@@ -213,6 +213,40 @@ pub enum LocalState {
 // EndOfToken signals to close the loop. It should also update the global state
 // to the valid next section before closing.
 
+// ################################# BAD IDEA #################################
+// Refactoring idea: instead of storing the location of whole words, only
+// store the location of the delimiter itself. Still scan for invalid
+// characters. This may resolve the conflict of the ':' in the userinfo if '@'
+// exists vs. a ':' before the port.
+// ################################# BAD IDEA #################################
+
+// Refactoring idea: Tokenize pairs of delimiters and the values inside them.
+// The whole URI can be cleaned first and then ripped appart by matching token
+// pairs.
+// Ex:
+// https://test@telemakos.io:21/?query1#frag_1
+// Pairs:
+//      scheme:auth
+//      auth:userinfo
+//      userinfo:port
+//      port:path
+//      path:query
+//      query:frag (or path:frag?) (paths cannot include other components. it would be query:frag. paths are inclosed in '/')
+
+// an ending token will just be delim:delim, ie., slash:slash for a path like example.com/this/path/
+// the location will exclude the index of both delimiters, including only the
+// items between.
+
+// section      range                 valid contents
+// scheme?:     empty-:               A..z, 0..9, +, ., -,
+// authority:   //-/                  !, $, &, ', (, ), *, ,, ;, =
+// userinfo?:   //-@                  A..z, +, !, $, &, ', (, ), *, ,, ;, =, :
+// host:        //-:, //-/, @-:       A..z, +, !, $, &, ', (, ), *, ,, ;, = [, ]
+// port:        :-/                   0..9, +
+// path:        /-/ or empty          A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /
+// query:       ?-?, ?-#, ?-empty     A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /, ?
+// fragment:    #-#, #-empty          A..z, +, !, $, &, ', (, ), *, ,, ;, =, :, @, /, ?
+
 impl Tokenizer {
     pub fn new(buffer: String) -> Self {
         Self {
