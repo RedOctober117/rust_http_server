@@ -244,16 +244,6 @@ pub enum LocalState {
 //      path:query
 //      query:frag (or path:frag?) (paths cannot include other components. it would be query:frag. paths are inclosed in '/')
 
-// an ending token will just be delim:delim, ie., slash:slash for a path like example.com/this/path/
-// the location will exclude the index of both delimiters, including only the
-// items between.
-// A URI is composed from an allowed set of ASCII characters consisting of
-// reserved characters:
-//                 gen-delims:  :, /, ?, #, [, ], and @;
-//                 sub-delims:  !, $, &, ', (, ), *, +, ,, ;, =
-//      unreserved characters:  A..z, 0..9, -, ., _, ~
-//        encoding characters:  %xx, where x is a hex value, ie., 0..F
-
 // section              range                           format (in regex)
 // scheme:              start-:                         <A..z>*[A..z 0..9 + . -]
 // authority:           //[userinfo][host][path]/
@@ -264,7 +254,57 @@ pub enum LocalState {
 // query:               ?-?, ?-#, ?-empty
 // fragment:            #-#, #-empty
 
+// an ending token will just be delim:delim, ie., slash:slash for a path like example.com/this/path/
+// the location will exclude the index of both delimiters, including only the
+// items between.
+// A URI is composed from an allowed set of ASCII characters consisting of
+// reserved characters:
+//                 gen-delims:  : / ? # [ ] @ Start End
+//                 sub-delims:  ! $ & ' ( ) * + , ; =
+//      unreserved characters:  A..z 0..9 - . _ ~
+//        encoding characters:  %xx, where x is a hex value, ie., 0..F
+
 // use this https://datatracker.ietf.org/doc/html/rfc3986
+
+// Using recursion:
+// https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top
+
+//         string?      string      u16?
+//         userinfo       host      port
+//         ┌──┴───┐ ┌──────┴──────┐ ┌┴─┐
+// https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top
+// └─┬─┘   └─────────────┬─────────────┘└───────┬───────┘ └────────────┬────────────┘ └┬┘
+// scheme            authority                path                   query          fragment
+//  enum              struct                  string                 string?         string?
+
+// The scheme and path components are required, though the path may be
+// empty (no characters).  When authority is present, the path must
+// either be empty or begin with a slash ("/") character.  When
+// authority is not present, the path cannot begin with two slash
+// characters ("//").  These restrictions result in five different ABNF
+// rules for a path (Section 3.3), only one of which will match any
+// given URI reference.
+
+// Structs representing a URI should only reflect the URI as it's written. Do
+// not infer ports or otherwise in the tokenizer.
+
+pub struct Authority {
+    _userinfo: Option<String>,
+    _host: Option<String>,
+    _port: Option<u16>,
+}
+
+// for char in bytes_as_chars:
+//     if char is valid and not gen delim, continue,
+//     if gen delim, tag start location mark, continue:
+//         if valid, continue,
+//         if gen delim,
+//             tag end location mark, return tag
+//         if sub delim,
+//             start new tag, tag start mark,
+//             for char after sub delim,
+//                 if valid, continue,
+//                 if
 
 impl Tokenizer {
     pub fn new(buffer: String) -> Self {
