@@ -29,38 +29,22 @@ impl RequestMessage {
         let mut message: Option<String> = None;
 
         let request_as_string = str::from_utf8(request).unwrap();
-        let sections: Vec<&str> = request_as_string.split("  \x0A").collect();
+        let sections: Vec<&str> = request_as_string.split("\x0A\x0A").collect();
+        println!("{:?}", sections);
         let control_and_header: Vec<&str> = sections[0].split("\x0A").collect();
 
-        let control_split: Vec<&str> = control_and_header[0].split(" ").collect();
-        if control_and_header.len() > 1 {
-            let headers_split: Vec<Vec<&str>> = control_and_header[1]
-                .split("\x0A")
-                .map(|line| line.split(": ").collect::<Vec<_>>())
-                .collect();
-
-            // HEADER DATA
-            for header in headers_split {
-                match header[0] {
-                    "User-Agent" => headers.push(Header::UserAgent(header[1].to_string())),
-                    "Content-Type" => headers.push(Header::ContentType(header[1].to_string())),
-                    "Content-Length" => headers.push(Header::ContentLength(header[1].to_string())),
-                    "Host" => headers.push(Header::Host(header[1].to_string())),
-                    &_ => todo!(),
-                }
-            }
-        }
-        if sections.len() > 1 {
-            let body_split = sections[1];
-            if !body_split.is_empty() {
-                message = Some(body_split.to_string());
-            }
-        }
-
         // CONTROL DATA
+        let control_split: Vec<&str> = control_and_header[0].split(" ").collect();
         match control_split[0] {
             "GET" => control_data.method = HTTPMethod::GET,
             "POST" => control_data.method = HTTPMethod::POST,
+            "HEAD" => control_data.method = HTTPMethod::HEAD,
+            "PUT" => control_data.method = HTTPMethod::PUT,
+            "DELETE" => control_data.method = HTTPMethod::DELETE,
+            "CONNECT" => control_data.method = HTTPMethod::CONNECT,
+            "OPTIONS" => control_data.method = HTTPMethod::OPTIONS,
+            "TRACE" => control_data.method = HTTPMethod::TRACE,
+            "PATCH" => control_data.method = HTTPMethod::PATCH,
             _ => todo!(),
         }
 
@@ -69,6 +53,39 @@ impl RequestMessage {
         match control_split[2] {
             "HTTP/1.1" => control_data.protocol = HTTPProtocol::Http1_1,
             _ => todo!(),
+        }
+
+        let mut header_items = vec![];
+        if control_and_header.len() > 1 {
+            for i in 1..control_and_header.len() {
+                header_items.push(&control_and_header[i]);
+            }
+        }
+
+        // HEADER DATA
+        if control_and_header.len() > 1 {
+            for header in header_items {
+                let split: Vec<_> = header.split(": ").collect();
+                println!("{:?}", split[0]);
+                match split[0] {
+                    "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
+                    "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
+                    "Content-Length" => headers.push(Header::ContentLength(split[1].to_string())),
+                    "Host" => headers.push(Header::Host(split[1].to_string())),
+                    "Accept" => headers.push(Header::Accept(split[1].to_string())),
+                    "Accept-Language" => headers.push(Header::AcceptLanguage(split[1].to_string())),
+                    "Accept-Encoding" => headers.push(Header::AcceptEncoding(split[1].to_string())),
+                    "Referer" => headers.push(Header::Referer(split[1].to_string())),
+                    &_ => todo!(),
+                }
+            }
+        }
+
+        if sections.len() > 1 {
+            let body_split = sections[1];
+            if !body_split.is_empty() {
+                message = Some(body_split.to_string());
+            }
         }
 
         Ok(Self {
@@ -104,8 +121,8 @@ pub struct ControlData {
 pub enum HTTPMethod {
     EMPTY,
     GET,
-    HEAD,
     POST,
+    HEAD,
     PUT,
     DELETE,
     CONNECT,
@@ -127,6 +144,10 @@ pub enum Header {
     ContentType(String),
     ContentLength(String),
     Host(String),
+    Accept(String),
+    AcceptLanguage(String),
+    AcceptEncoding(String),
+    Referer(String),
 }
 
 #[derive(Debug)]
