@@ -30,7 +30,6 @@ impl RequestMessage {
 
         let request_as_string = str::from_utf8(request).unwrap();
         let sections: Vec<&str> = request_as_string.split("\x0A\x0A").collect();
-        println!("{:?}", sections);
         let control_and_header: Vec<&str> = sections[0].split("\x0A").collect();
 
         // CONTROL DATA
@@ -66,7 +65,6 @@ impl RequestMessage {
         if control_and_header.len() > 1 {
             for header in header_items {
                 let split: Vec<_> = header.split(": ").collect();
-                println!("{:?}", split[0]);
                 match split[0] {
                     "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
                     "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
