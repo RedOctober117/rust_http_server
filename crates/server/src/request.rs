@@ -13,6 +13,22 @@ pub struct RequestMessage {
     message: Option<String>,
 }
 
+impl RequestMessage {
+    pub fn parse_request(request: [u8; 8000]) -> Self {
+        Self {
+            control_data: ControlData {
+                method: HTTPMethod::GET {
+                    req: None,
+                    res: "s".to_string(),
+                },
+                protocol: HTTPProtocol::HTTP_1_1,
+            },
+            headers_table: None,
+            message: None,
+        }
+    }
+}
+
 pub struct ControlData {
     method: HTTPMethod,
     protocol: HTTPProtocol,
