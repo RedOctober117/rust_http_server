@@ -65,6 +65,7 @@ impl RequestMessage {
         if control_and_header.len() > 1 {
             for header in header_items {
                 let split: Vec<_> = header.split(": ").collect();
+                println!("{:?}", split[0]);
                 match split[0] {
                     "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
                     "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
@@ -74,7 +75,8 @@ impl RequestMessage {
                     "Accept-Language" => headers.push(Header::AcceptLanguage(split[1].to_string())),
                     "Accept-Encoding" => headers.push(Header::AcceptEncoding(split[1].to_string())),
                     "Referer" => headers.push(Header::Referer(split[1].to_string())),
-                    &_ => todo!(),
+                    // "" => continue,
+                    &_ => continue,
                 }
             }
         }
