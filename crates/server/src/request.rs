@@ -29,12 +29,12 @@ impl RequestMessage {
         let mut message: Option<String> = None;
 
         let request_as_string = str::from_utf8(request).unwrap();
-        let sections: Vec<&str> = request_as_string.split("\x0A\x0A").collect();
-        let control_and_header: Vec<&str> = sections[0].split("\x0A").collect();
+        let sections: Vec<&str> = request_as_string.split("\r\n\r\n").collect();
+        let control_and_header: Vec<&str> = sections[0].split("\r\n").collect();
 
         // CONTROL DATA
         let control_split: Vec<&str> = control_and_header[0].split(" ").collect();
-        match control_split[0] {
+        match control_split[0].trim() {
             "GET" => control_data.method = HTTPMethod::GET,
             "POST" => control_data.method = HTTPMethod::POST,
             "HEAD" => control_data.method = HTTPMethod::HEAD,
@@ -44,14 +44,17 @@ impl RequestMessage {
             "OPTIONS" => control_data.method = HTTPMethod::OPTIONS,
             "TRACE" => control_data.method = HTTPMethod::TRACE,
             "PATCH" => control_data.method = HTTPMethod::PATCH,
-            _ => todo!(),
+            _ => println!("IMPLEMENT REQUEST::CONTROL::METHOD {}", control_split[0]),
         }
 
         control_data.path = control_split[1].to_string();
 
-        match control_split[2] {
+        match control_split[2].trim() {
             "HTTP/1.1" => control_data.protocol = HTTPProtocol::Http1_1,
-            _ => todo!(),
+            _ => println!(
+                "IMPLEMENT REQUEST::CONTROL::HTTPProtocol {}",
+                control_split[2]
+            ),
         }
 
         let mut header_items = vec![];
@@ -65,7 +68,7 @@ impl RequestMessage {
         if control_and_header.len() > 1 {
             for header in header_items {
                 let split: Vec<_> = header.split(": ").collect();
-                println!("{:?}", split[0]);
+                // println!("{:?}", split[0]);
                 match split[0] {
                     "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
                     "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
@@ -75,8 +78,8 @@ impl RequestMessage {
                     "Accept-Language" => headers.push(Header::AcceptLanguage(split[1].to_string())),
                     "Accept-Encoding" => headers.push(Header::AcceptEncoding(split[1].to_string())),
                     "Referer" => headers.push(Header::Referer(split[1].to_string())),
-                    // "" => continue,
                     &_ => continue,
+                    // &_ => println!("IMPLEMENT REQUEST::HEADERS::HEADER {}", split[0]),
                 }
             }
         }
@@ -163,6 +166,15 @@ pub enum HTTPProtocol {
     Http1_1,
 }
 
+impl HTTPProtocol {
+    pub fn to_string(&self) -> String {
+        match self {
+            HTTPProtocol::EMPTY => "EMPTY".to_string(),
+            HTTPProtocol::Http1_1 => "HTTP/1.1".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Header {
     EMPTY,
@@ -174,6 +186,23 @@ pub enum Header {
     AcceptLanguage(String),
     AcceptEncoding(String),
     Referer(String),
+    ContentDisposition(String),
+}
+impl Header {
+    pub fn to_string(&self) -> String {
+        match self {
+            Header::EMPTY => format!("EMPTY",),
+            Header::UserAgent(value) => format!("User-Agent: {:?}", value),
+            Header::ContentType(value) => format!("Content-Type: {:?}", value),
+            Header::ContentLength(value) => format!("Content-Length: {:?}", value),
+            Header::Host(value) => format!("Host: {:?}", value),
+            Header::Accept(value) => format!("Accept: {:?}", value),
+            Header::AcceptLanguage(value) => format!("Accept-Language: {:?}", value),
+            Header::AcceptEncoding(value) => format!("Accept-Encoding: {:?}", value),
+            Header::Referer(value) => format!("Referer: {:?}", value),
+            Header::ContentDisposition(value) => format!("Content-Disposition: {:?}", value),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

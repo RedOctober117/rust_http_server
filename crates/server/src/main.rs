@@ -2,6 +2,10 @@
 
 use request::{MessageParseError, RequestMessage};
 use response::ResponseMessage;
+use std::{
+    io::{Read, Write},
+    net::TcpListener,
+};
 
 pub mod request;
 pub mod response;
@@ -17,46 +21,43 @@ fn main() -> Result<(), MessageParseError> {
 
     // <test body>"}"##;
 
-    let buffer = r##"PUT /test_file.html HTTP/1.1
+    //     let put_buffer = r##"PUT /test_file.html HTTP/1.1
 
-<p>NewFile</p>"##;
+    // <p>NewFile</p>"##;
 
-    let request = RequestMessage::parse_request(buffer.as_bytes())?;
-    println!("Parsed\n\n{}\n\nto\n\n{}\n", buffer, request);
-    let response = ResponseMessage::build_response(request);
-    println!("Response:\n{:?}", response);
+    //     let get_buffer = r##"GET /test_file.html HTTP/1.1
+    // "##;
+
+    //     let put_request = RequestMessage::parse_request(put_buffer.as_bytes())?;
+    //     println!("Parsed PUT\n\n{}\n\nto\n\n{}\n", put_buffer, put_request);
+    //     let put_response = ResponseMessage::build_response(put_request).expect("");
+    //     println!("Response PUT:\n{}\n\n", put_response);
+
+    //     let get_request = RequestMessage::parse_request(get_buffer.as_bytes())?;
+    //     println!("Parsed GET\n\n{}\n\nto\n\n{}\n", get_buffer, get_request);
+    //     let get_response = ResponseMessage::build_response(get_request).expect("");
+    //     println!("Response GET:\n{}\n\n", get_response);
+
+    let address = "127.0.0.1:8080";
+    println!("Opening listener on {} . . .", address);
+    let stream = TcpListener::bind(address).expect("");
+
+    for s in stream.incoming() {
+        let mut handle = match s {
+            Ok(handle) => handle,
+            Err(_) => continue,
+        };
+        // println!("Received a stream: {:?}", &handle);
+        let mut buffer = [0; 512];
+        handle.read(&mut buffer).expect("");
+
+        let request = RequestMessage::parse_request(&buffer)?;
+        println!("Received:\n\n{:?}\n\n", request);
+
+        let response = ResponseMessage::build_response(request).expect("");
+        println!("Responded with:========\n\n{}=======", response);
+        handle.write(response.to_string().as_bytes()).expect("");
+        handle.flush().expect("couldnt flush buffer");
+    }
     Ok(())
-    // let split: Vec<_> = request.split(" \x0A").collect();
-
-    // println!("{:?}", split.len());
-    // println!("{:?}", split);
-    // let test_uri = String::from("https://telemakos.io/test?test_query=#fragment-here");
-    // let mut tokenizer = Tokenizer::new(test_uri.clone());
-
-    // println!("Tokenizing . . . \n{}", tokenizer);
-
-    // println!("Parsing {} . . .", test_uri);
-
-    // println!("{}", Uri::parse_tokens(&mut tokenizer).ok().unwrap());
-
-    // loop {``
-    //     let token = tokenizer.next();
-    //     if token.tag() == Tag::EndOfURI {
-    //         break;
-    //     }
-    //     println!("{:?}", token.tag());
-    // }
-    // let address = "127.0.0.1:8080";
-    // println!("Opening listener on {} . . .", address);
-    // let stream = TcpListener::bind(address)?;
-
-    // for s in stream.incoming() {
-    //     println!("Received a stream: {:?}", &s);
-    //     let mut buffer = [0; 8000];
-    //     s?.peek(&mut buffer)?;
-    //     let converted_buffer = Uri::parse_buffer(&buffer);
-    //     println!("Received:\n\t{:?}", converted_buffer);
-    // }
-    // stream.write(&[1])?;
-    // Ok(())
 }
