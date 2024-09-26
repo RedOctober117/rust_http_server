@@ -97,8 +97,16 @@ impl RequestMessage {
         })
     }
 
-    pub fn get_control_line(&self) -> ControlData {
-        self.control_data.clone()
+    pub fn get_control_line(&self) -> &ControlData {
+        &self.control_data
+    }
+
+    pub fn get_body(&self) -> Option<&str> {
+        if let Some(body) = &self.message {
+            Some(body.as_str())
+        } else {
+            None
+        }
     }
 }
 
