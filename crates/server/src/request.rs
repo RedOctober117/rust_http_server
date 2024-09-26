@@ -10,7 +10,7 @@
 use core::str;
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RequestMessage {
     control_data: ControlData,
     headers_table: Option<Vec<Header>>,
@@ -96,6 +96,10 @@ impl RequestMessage {
             message,
         })
     }
+
+    pub fn get_control_line(&self) -> ControlData {
+        self.control_data.clone()
+    }
 }
 
 impl Display for RequestMessage {
@@ -108,14 +112,28 @@ impl Display for RequestMessage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ControlData {
     method: HTTPMethod,
     path: String,
     protocol: HTTPProtocol,
 }
 
-#[derive(Debug)]
+impl ControlData {
+    pub fn get_method(&self) -> HTTPMethod {
+        self.method
+    }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn get_protocol(&self) -> HTTPProtocol {
+        self.protocol
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum HTTPMethod {
     EMPTY,
     GET,
@@ -129,13 +147,13 @@ pub enum HTTPMethod {
     PATCH,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum HTTPProtocol {
     EMPTY,
     Http1_1,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Header {
     EMPTY,
     UserAgent(String),
@@ -148,5 +166,5 @@ pub enum Header {
     Referer(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct MessageParseError;

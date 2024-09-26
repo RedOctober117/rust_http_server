@@ -3,6 +3,7 @@
 use request::{MessageParseError, RequestMessage};
 
 pub mod request;
+pub mod response;
 
 fn main() -> Result<(), MessageParseError> {
     let buffer = r##"GET /help/img/idea/2024.2/ps_http_client_unresolved_var.png HTTP/1.1
