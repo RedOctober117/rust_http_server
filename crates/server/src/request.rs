@@ -28,7 +28,7 @@ impl RequestMessage {
         let mut headers: Vec<Header> = vec![];
         let mut message: Option<String> = None;
 
-        let request_as_string = str::from_utf8(request).unwrap();
+        let request_as_string = str::from_utf8(request).unwrap().trim_matches('\0');
         let sections: Vec<&str> = request_as_string.split("\r\n\r\n").collect();
         let control_and_header: Vec<&str> = sections[0].split("\r\n").collect();
 
@@ -69,7 +69,7 @@ impl RequestMessage {
         if control_and_header.len() > 1 {
             for header in header_items {
                 let split: Vec<_> = header.split(": ").collect();
-                // println!("{:?}", split[0]);
+
                 match split[0] {
                     "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
                     "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
@@ -79,8 +79,8 @@ impl RequestMessage {
                     "Accept-Language" => headers.push(Header::AcceptLanguage(split[1].to_string())),
                     "Accept-Encoding" => headers.push(Header::AcceptEncoding(split[1].to_string())),
                     "Referer" => headers.push(Header::Referer(split[1].to_string())),
-                    &_ => continue,
-                    // &_ => println!("IMPLEMENT REQUEST::HEADERS::HEADER {}", split[0]),
+                    // &_ => continue,
+                    &_ => println!("IMPLEMENT REQUEST::HEADERS::HEADER {}", split[0]),
                 }
             }
         }
@@ -200,15 +200,15 @@ impl fmt::Display for Header {
             "{}",
             match self {
                 Header::EMPTY => "EMPTY".to_string(),
-                Header::UserAgent(value) => format!("User-Agent: {:?}", value),
-                Header::ContentType(value) => format!("Content-Type: {:?}", value),
-                Header::ContentLength(value) => format!("Content-Length: {:?}", value),
-                Header::Host(value) => format!("Host: {:?}", value),
-                Header::Accept(value) => format!("Accept: {:?}", value),
-                Header::AcceptLanguage(value) => format!("Accept-Language: {:?}", value),
-                Header::AcceptEncoding(value) => format!("Accept-Encoding: {:?}", value),
-                Header::Referer(value) => format!("Referer: {:?}", value),
-                Header::ContentDisposition(value) => format!("Content-Disposition: {:?}", value),
+                Header::UserAgent(value) => format!("User-Agent: {}", value),
+                Header::ContentType(value) => format!("Content-Type: {}", value),
+                Header::ContentLength(value) => format!("Content-Length: {}", value),
+                Header::Host(value) => format!("Host: {}", value),
+                Header::Accept(value) => format!("Accept: {}", value),
+                Header::AcceptLanguage(value) => format!("Accept-Language: {}", value),
+                Header::AcceptEncoding(value) => format!("Accept-Encoding: {}", value),
+                Header::Referer(value) => format!("Referer: {}", value),
+                Header::ContentDisposition(value) => format!("Content-Disposition: {}", value),
             }
         )
     }
