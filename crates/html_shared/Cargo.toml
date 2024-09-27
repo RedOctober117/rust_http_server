@@ -1,7 +1,6 @@
 [package]
-name = "router"
+name = "html_shared"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-html_shared = {path="../html_shared"}

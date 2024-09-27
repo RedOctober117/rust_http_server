@@ -1,9 +1,15 @@
 use core::fmt;
 // use log::info;
-use router::Router;
+use html_shared::header::Header;
+use html_shared::method::HTTPMethod;
+use html_shared::protocol::HTTPProtocol;
+use html_shared::status::*;
+use router::route::Route;
+use router::router::Router;
 use std::fs;
 use std::path::Path;
 
+use crate::errors::RequestGenerationError;
 use crate::request::*;
 
 pub const FILES_PATH: &str = "files/";
@@ -32,10 +38,13 @@ impl<'a> ResponseMessage<'a> {
             fs::create_dir(files_path).expect("Could not create files directory");
         }
 
+        let route = Route(
+            request.get_control_line().get_method(),
+            request.get_control_line().get_path().to_string(),
+        );
+
         // Route the path.
-        let path = router
-            .match_path(request.get_control_line().get_path())
-            .unwrap_or("INVALID PATH");
+        let path = router.route(route).unwrap_or("INVALID PATH");
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
@@ -86,10 +95,7 @@ impl<'a> ResponseMessage<'a> {
         }
 
         Ok(Self {
-            status_line: StatusLine {
-                protocol: status_line_protocol,
-                status_code: status_line_code.unwrap(),
-            },
+            status_line: StatusLine::init(status_line_protocol, status_line_code.unwrap()),
             headers_table,
             body,
         })
@@ -98,7 +104,7 @@ impl<'a> ResponseMessage<'a> {
 
 impl<'a> fmt::Display for ResponseMessage<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let status_code = match self.status_line.status_code {
+        let status_code = match self.status_line.status_code() {
             StatusCodeEnum::Code200(code) => code,
             StatusCodeEnum::Code201(code) => code,
             StatusCodeEnum::Code400(code) => code,
@@ -127,7 +133,7 @@ impl<'a> fmt::Display for ResponseMessage<'a> {
         write!(
             f,
             "{} {}\r\n{}\r\n{}\r\n",
-            self.status_line.protocol,
+            self.status_line.protocol(),
             status_code,
             headers_as_string,
             match &self.body {
@@ -144,22 +150,18 @@ pub struct StatusLine<'a> {
     status_code: StatusCodeEnum<'a>,
 }
 
-pub const CODE200: StatusCodeEnum<'_> = StatusCodeEnum::Code200("200 Ok");
-pub const CODE201: StatusCodeEnum<'_> = StatusCodeEnum::Code201("201 Created");
-pub const CODE400: StatusCodeEnum<'_> = StatusCodeEnum::Code400("400 Bad Request");
-pub const CODE404: StatusCodeEnum<'_> = StatusCodeEnum::Code404("404 Not Found");
-pub const CODE500: StatusCodeEnum<'_> = StatusCodeEnum::Code500("500 Internal Server Error");
-pub const CODE501: StatusCodeEnum<'_> = StatusCodeEnum::Code501("501 Internal Server Error");
+impl<'a> StatusLine<'a> {
+    pub fn init(protocol: HTTPProtocol, status_code: StatusCodeEnum<'a>) -> Self {
+        Self {
+            protocol,
+            status_code,
+        }
+    }
+    pub fn status_code(&self) -> StatusCodeEnum {
+        self.status_code
+    }
 
-#[derive(Debug)]
-pub enum StatusCodeEnum<'a> {
-    Code200(&'a str),
-    Code201(&'a str),
-    Code400(&'a str),
-    Code404(&'a str),
-    Code500(&'a str),
-    Code501(&'a str),
+    pub fn protocol(&self) -> HTTPProtocol {
+        self.protocol
+    }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct RequestGenerationError;
