@@ -7,6 +7,14 @@ name = "client"
 version = "0.1.0"
 
 [[package]]
+name = "handler"
+version = "0.1.0"
+dependencies = [
+ "router",
+ "server",
+]
+
+[[package]]
 name = "log"
 version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
