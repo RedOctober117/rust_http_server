@@ -1,11 +1,17 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-pub struct Route {
+#[derive(Debug, Clone, Default)]
+pub struct Router {
     route_map: HashMap<String, PathBuf>,
 }
 
-impl Route {
+impl Router {
+    pub fn new() -> Self {
+        Self {
+            route_map: HashMap::<String, PathBuf>::new(),
+        }
+    }
     pub fn connect(&mut self, html_path: &str, abs_path: PathBuf) {
         self.route_map.insert(html_path.to_string(), abs_path);
     }

@@ -1,5 +1,6 @@
 use core::fmt;
 use log::info;
+use router::Router;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -15,40 +16,39 @@ pub struct ResponseMessage<'a> {
 }
 
 impl<'a> ResponseMessage<'a> {
-    pub fn build_response(request: RequestMessage) -> Result<Self, RequestGenerationError> {
+    pub fn build_response(
+        request: RequestMessage,
+        router: &Router,
+    ) -> Result<Self, RequestGenerationError> {
         let status_line_protocol = request.get_control_line().get_protocol();
         let mut status_line_code: Option<StatusCodeEnum> = None;
 
         let mut headers_table = vec![];
         let mut body = None;
 
-        let path = Path::new(request.get_control_line().get_path());
+        // Setup the files dir, just in case.
         let file_path = Path::new(FILE_PATH);
         if !file_path.exists() {
             fs::create_dir(file_path).expect("Could not create files directory");
         }
-        let mut joined_path: PathBuf = PathBuf::new();
-        if path.starts_with("/") {
-            info!("path had /");
-            joined_path.push(
-                Path::new(FILE_PATH).join(path.strip_prefix("/").expect("Error stripping prefix")),
-            );
-        } else {
-            info!("path lacked /");
-            joined_path.push(Path::new(FILE_PATH).join(path));
-        }
+
+        // Route the path.
+        let path = match router.match_path(request.get_control_line().get_path()) {
+            Some(p) => p,
+            None => "INVALID PATH",
+        };
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
-                if let Ok(file) = fs::read_to_string(&joined_path) {
-                    info!(target: "GET", "Path already exists {:?}", &joined_path);
+                if let Ok(file) = fs::read_to_string(path) {
+                    println!("Path already exists {:?}", path);
                     body = Some(file.clone());
                     status_line_code = Some(CODE200);
                     headers_table.push(Header::ContentType("text/html; charset=utf-8".to_string()));
                     headers_table.push(Header::ContentDisposition("inline".to_string()));
                     headers_table.push(Header::ContentLength(file.len().to_string()));
                 } else {
-                    info!(target: "GET", "Path does not exist {:?}", &joined_path);
+                    info!(target: "GET", "Path does not exist {:?}", path);
                     status_line_code = Some(CODE400);
                 }
             }
@@ -57,25 +57,25 @@ impl<'a> ResponseMessage<'a> {
                 // if not, set code to 201 and write file
                 let contents = request.get_body();
 
-                match fs::exists(&joined_path) {
+                match fs::exists(path) {
                     Ok(true) => {
-                        if fs::write(&joined_path, contents.unwrap()).is_err() {
-                            info!(target: "PUT", "Path existed but could not write to path {:?}", &joined_path);
+                        if fs::write(path, contents.unwrap()).is_err() {
+                            info!(target: "PUT", "Path existed but could not write to path {:?}", path);
                             status_line_code = Some(CODE500);
                         } else {
                             status_line_code = Some(CODE200);
                         }
                     }
                     Ok(false) => {
-                        if fs::write(&joined_path, contents.unwrap()).is_err() {
-                            info!(target: "PUT", "Path did not exist and could not write to path {:?}", &joined_path);
+                        if fs::write(path, contents.unwrap()).is_err() {
+                            info!(target: "PUT", "Path did not exist and could not write to path {:?}", path);
                             status_line_code = Some(CODE501);
                         } else {
                             status_line_code = Some(CODE201);
                         }
                     }
                     Err(_) => {
-                        info!(target: "PUT", "Error finding path {:?}", &joined_path);
+                        info!(target: "PUT", "Error finding path {:?}", path);
                         status_line_code = Some(CODE500);
                     }
                 }
