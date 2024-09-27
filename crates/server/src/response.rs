@@ -1,0 +1,166 @@
+use core::fmt;
+use log::info;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::request::*;
+
+pub const FILE_PATH: &str = "files/";
+
+#[derive(Debug)]
+pub struct ResponseMessage<'a> {
+    status_line: StatusLine<'a>,
+    headers_table: Vec<Header>,
+    body: Option<String>,
+}
+
+impl<'a> ResponseMessage<'a> {
+    pub fn build_response(request: RequestMessage) -> Result<Self, RequestGenerationError> {
+        let status_line_protocol = request.get_control_line().get_protocol();
+        let mut status_line_code: Option<StatusCodeEnum> = None;
+
+        let mut headers_table = vec![];
+        let mut body = None;
+
+        let path = Path::new(request.get_control_line().get_path());
+        let file_path = Path::new(FILE_PATH);
+        if !file_path.exists() {
+            fs::create_dir(file_path).expect("Could not create files directory");
+        }
+        let mut joined_path: PathBuf = PathBuf::new();
+        if path.starts_with("/") {
+            info!("path had /");
+            joined_path.push(
+                Path::new(FILE_PATH).join(path.strip_prefix("/").expect("Error stripping prefix")),
+            );
+        } else {
+            info!("path lacked /");
+            joined_path.push(Path::new(FILE_PATH).join(path));
+        }
+
+        match request.get_control_line().get_method() {
+            HTTPMethod::GET => {
+                if let Ok(file) = fs::read_to_string(&joined_path) {
+                    info!(target: "GET", "Path already exists {:?}", &joined_path);
+                    body = Some(file.clone());
+                    status_line_code = Some(CODE200);
+                    headers_table.push(Header::ContentType("text/html; charset=utf-8".to_string()));
+                    headers_table.push(Header::ContentDisposition("inline".to_string()));
+                    headers_table.push(Header::ContentLength(file.len().to_string()));
+                } else {
+                    info!(target: "GET", "Path does not exist {:?}", &joined_path);
+                    status_line_code = Some(CODE400);
+                }
+            }
+            HTTPMethod::PUT => {
+                // Check if file already exists, if so, set status code to 200 and write file
+                // if not, set code to 201 and write file
+                let contents = request.get_body();
+
+                match fs::exists(&joined_path) {
+                    Ok(true) => {
+                        if fs::write(&joined_path, contents.unwrap()).is_err() {
+                            info!(target: "PUT", "Path existed but could not write to path {:?}", &joined_path);
+                            status_line_code = Some(CODE500);
+                        } else {
+                            status_line_code = Some(CODE200);
+                        }
+                    }
+                    Ok(false) => {
+                        if fs::write(&joined_path, contents.unwrap()).is_err() {
+                            info!(target: "PUT", "Path did not exist and could not write to path {:?}", &joined_path);
+                            status_line_code = Some(CODE501);
+                        } else {
+                            status_line_code = Some(CODE201);
+                        }
+                    }
+                    Err(_) => {
+                        info!(target: "PUT", "Error finding path {:?}", &joined_path);
+                        status_line_code = Some(CODE500);
+                    }
+                }
+            }
+            _ => println!(
+                "IMPLEMENT RESPONSE::HTTPMETHOD::METHOD {:?}",
+                request.get_control_line().get_method()
+            ),
+        }
+
+        Ok(Self {
+            status_line: StatusLine {
+                protocol: status_line_protocol,
+                status_code: status_line_code.unwrap(),
+            },
+            headers_table,
+            body,
+        })
+    }
+}
+
+impl<'a> fmt::Display for ResponseMessage<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status_code = match self.status_line.status_code {
+            StatusCodeEnum::Code200(code) => code,
+            StatusCodeEnum::Code201(code) => code,
+            StatusCodeEnum::Code400(code) => code,
+            StatusCodeEnum::Code404(code) => code,
+            StatusCodeEnum::Code500(code) => code,
+            StatusCodeEnum::Code501(code) => code,
+        };
+
+        let mut headers_as_string = String::new();
+        for header in &self.headers_table {
+            match header {
+                Header::EMPTY => headers_as_string.push_str(&header.to_string()),
+                Header::Accept(_) => headers_as_string.push_str(&header.to_string()),
+                Header::UserAgent(_) => headers_as_string.push_str(&header.to_string()),
+                Header::ContentType(_) => headers_as_string.push_str(&header.to_string()),
+                Header::ContentLength(_) => headers_as_string.push_str(&header.to_string()),
+                Header::Host(_) => headers_as_string.push_str(&header.to_string()),
+                Header::AcceptLanguage(_) => headers_as_string.push_str(&header.to_string()),
+                Header::AcceptEncoding(_) => headers_as_string.push_str(&header.to_string()),
+                Header::Referer(_) => headers_as_string.push_str(&header.to_string()),
+                Header::ContentDisposition(_) => headers_as_string.push_str(&header.to_string()),
+            }
+            headers_as_string.push_str("\r\n");
+        }
+
+        write!(
+            f,
+            "{} {}\r\n{}\r\n{}\r\n",
+            self.status_line.protocol,
+            status_code,
+            headers_as_string,
+            match &self.body {
+                Some(string) => string,
+                None => "",
+            }
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct StatusLine<'a> {
+    protocol: HTTPProtocol,
+    status_code: StatusCodeEnum<'a>,
+}
+
+pub const CODE200: StatusCodeEnum<'_> = StatusCodeEnum::Code200("200 Ok");
+pub const CODE201: StatusCodeEnum<'_> = StatusCodeEnum::Code201("201 Created");
+pub const CODE400: StatusCodeEnum<'_> = StatusCodeEnum::Code400("400 Bad Request");
+pub const CODE404: StatusCodeEnum<'_> = StatusCodeEnum::Code404("404 Not Found");
+pub const CODE500: StatusCodeEnum<'_> = StatusCodeEnum::Code500("500 Internal Server Error");
+pub const CODE501: StatusCodeEnum<'_> = StatusCodeEnum::Code501("501 Internal Server Error");
+
+#[derive(Debug)]
+pub enum StatusCodeEnum<'a> {
+    Code200(&'a str),
+    Code201(&'a str),
+    Code400(&'a str),
+    Code404(&'a str),
+    Code500(&'a str),
+    Code501(&'a str),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RequestGenerationError;
