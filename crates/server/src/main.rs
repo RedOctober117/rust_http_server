@@ -1,17 +1,14 @@
 // use server::{HttpSchemeEnum, Tag, Tokenizer, Uri};
 
-use request::{MessageParseError, RequestMessage};
-use response::ResponseMessage;
+use html_messages::errors::MessageParseError;
+use html_messages::request::RequestMessage;
+use html_messages::response::ResponseMessage;
+use router::router::Router;
 use std::path::PathBuf;
 use std::{
     io::{Read, Write},
     net::TcpListener,
 };
-
-use router::Router;
-
-pub mod request;
-pub mod response;
 
 fn main() -> Result<(), MessageParseError> {
     let mut router = Router::default();

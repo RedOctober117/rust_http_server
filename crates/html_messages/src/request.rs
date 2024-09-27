@@ -7,8 +7,11 @@
 // - a trailers lookup table of name/value pairs for communicating information
 //      obtained while sending the content.
 
-use core::{fmt, str};
+use core::str;
+use html_shared::{header::Header, method::HTTPMethod, protocol::HTTPProtocol};
 use std::fmt::Display;
+
+use crate::errors::MessageParseError;
 
 #[derive(Debug, Clone)]
 pub struct RequestMessage {
@@ -146,73 +149,3 @@ impl ControlData {
         self.protocol
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum HTTPMethod {
-    EMPTY,
-    GET,
-    POST,
-    HEAD,
-    PUT,
-    DELETE,
-    CONNECT,
-    OPTIONS,
-    TRACE,
-    PATCH,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum HTTPProtocol {
-    EMPTY,
-    Http1_1,
-}
-
-impl fmt::Display for HTTPProtocol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                HTTPProtocol::EMPTY => "EMPTY",
-                HTTPProtocol::Http1_1 => "HTTP/1.1",
-            }
-        )
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Header {
-    EMPTY,
-    UserAgent(String),
-    ContentType(String),
-    ContentLength(String),
-    Host(String),
-    Accept(String),
-    AcceptLanguage(String),
-    AcceptEncoding(String),
-    Referer(String),
-    ContentDisposition(String),
-}
-impl fmt::Display for Header {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Header::EMPTY => "EMPTY".to_string(),
-                Header::UserAgent(value) => format!("User-Agent: {}", value),
-                Header::ContentType(value) => format!("Content-Type: {}", value),
-                Header::ContentLength(value) => format!("Content-Length: {}", value),
-                Header::Host(value) => format!("Host: {}", value),
-                Header::Accept(value) => format!("Accept: {}", value),
-                Header::AcceptLanguage(value) => format!("Accept-Language: {}", value),
-                Header::AcceptEncoding(value) => format!("Accept-Encoding: {}", value),
-                Header::Referer(value) => format!("Referer: {}", value),
-                Header::ContentDisposition(value) => format!("Content-Disposition: {}", value),
-            }
-        )
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct MessageParseError;

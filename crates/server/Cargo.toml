@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 log = "0.4.22"
 router = {path = "../router"}
+html_shared = {path = "../html_shared"}
+html_messages = {path="../html_messages"}
