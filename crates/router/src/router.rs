@@ -27,7 +27,3 @@ impl Router {
         self.route_map.remove(html_path)
     }
 }
-
-// pub struct Route {
-//     route_method:
-// }
