@@ -56,7 +56,7 @@ fn main() -> Result<(), MessageParseError> {
 
         let response = ResponseMessage::build_response(request).expect("");
         println!("Responded with:========\n\n{}=======", response);
-        handle.write(response.to_string().as_bytes()).expect("");
+        handle.write_all(response.to_string().as_bytes()).expect("");
         handle.flush().expect("couldnt flush buffer");
     }
     Ok(())

@@ -7,7 +7,7 @@
 // - a trailers lookup table of name/value pairs for communicating information
 //      obtained while sending the content.
 
-use core::str;
+use core::{fmt, str};
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
@@ -59,8 +59,9 @@ impl RequestMessage {
 
         let mut header_items = vec![];
         if control_and_header.len() > 1 {
-            for i in 1..control_and_header.len() {
-                header_items.push(&control_and_header[i]);
+            //for <item> in control_and_header.iter().skip(1)
+            for header in control_and_header.iter().skip(1) {
+                header_items.push(header);
             }
         }
 
@@ -166,12 +167,16 @@ pub enum HTTPProtocol {
     Http1_1,
 }
 
-impl HTTPProtocol {
-    pub fn to_string(&self) -> String {
-        match self {
-            HTTPProtocol::EMPTY => "EMPTY".to_string(),
-            HTTPProtocol::Http1_1 => "HTTP/1.1".to_string(),
-        }
+impl fmt::Display for HTTPProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                HTTPProtocol::EMPTY => "EMPTY",
+                HTTPProtocol::Http1_1 => "HTTP/1.1",
+            }
+        )
     }
 }
 
@@ -188,20 +193,24 @@ pub enum Header {
     Referer(String),
     ContentDisposition(String),
 }
-impl Header {
-    pub fn to_string(&self) -> String {
-        match self {
-            Header::EMPTY => format!("EMPTY",),
-            Header::UserAgent(value) => format!("User-Agent: {:?}", value),
-            Header::ContentType(value) => format!("Content-Type: {:?}", value),
-            Header::ContentLength(value) => format!("Content-Length: {:?}", value),
-            Header::Host(value) => format!("Host: {:?}", value),
-            Header::Accept(value) => format!("Accept: {:?}", value),
-            Header::AcceptLanguage(value) => format!("Accept-Language: {:?}", value),
-            Header::AcceptEncoding(value) => format!("Accept-Encoding: {:?}", value),
-            Header::Referer(value) => format!("Referer: {:?}", value),
-            Header::ContentDisposition(value) => format!("Content-Disposition: {:?}", value),
-        }
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Header::EMPTY => "EMPTY".to_string(),
+                Header::UserAgent(value) => format!("User-Agent: {:?}", value),
+                Header::ContentType(value) => format!("Content-Type: {:?}", value),
+                Header::ContentLength(value) => format!("Content-Length: {:?}", value),
+                Header::Host(value) => format!("Host: {:?}", value),
+                Header::Accept(value) => format!("Accept: {:?}", value),
+                Header::AcceptLanguage(value) => format!("Accept-Language: {:?}", value),
+                Header::AcceptEncoding(value) => format!("Accept-Encoding: {:?}", value),
+                Header::Referer(value) => format!("Referer: {:?}", value),
+                Header::ContentDisposition(value) => format!("Content-Disposition: {:?}", value),
+            }
+        )
     }
 }
 
