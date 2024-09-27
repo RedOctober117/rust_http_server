@@ -3,6 +3,8 @@
 use html_messages::errors::MessageParseError;
 use html_messages::request::RequestMessage;
 use html_messages::response::ResponseMessage;
+use html_shared::method::HTTPMethod;
+use router::route::Route;
 use router::router::Router;
 use std::path::PathBuf;
 use std::{
@@ -13,7 +15,15 @@ use std::{
 fn main() -> Result<(), MessageParseError> {
     let mut router = Router::default();
 
-    router.connect("/", PathBuf::from("files/test_file.html"));
+    router.connect(
+        Route(HTTPMethod::GET, "/".to_string()),
+        PathBuf::from("files/test_file.html"),
+    );
+
+    // router.connect(
+    //     Route(HTTPMethod::GET, "/final".to_string()),
+    //     PathBuf::from("files/citc1300-final-master/index.html"),
+    // );
 
     let address = "127.0.0.1:8080";
     println!("Opening listener on http://{} . . .", address);

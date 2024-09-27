@@ -4,6 +4,7 @@ use html_shared::header::Header;
 use html_shared::method::HTTPMethod;
 use html_shared::protocol::HTTPProtocol;
 use html_shared::status::*;
+use router::route::Route;
 use router::router::Router;
 use std::fs;
 use std::path::Path;
@@ -37,10 +38,13 @@ impl<'a> ResponseMessage<'a> {
             fs::create_dir(files_path).expect("Could not create files directory");
         }
 
+        let route = Route(
+            request.get_control_line().get_method(),
+            request.get_control_line().get_path().to_string(),
+        );
+
         // Route the path.
-        let path = router
-            .match_path(request.get_control_line().get_path())
-            .unwrap_or("INVALID PATH");
+        let path = router.route(route).unwrap_or("INVALID PATH");
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
