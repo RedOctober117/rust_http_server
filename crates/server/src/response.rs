@@ -1,12 +1,12 @@
 use core::fmt;
-use log::info;
+// use log::info;
 use router::Router;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::request::*;
 
-pub const FILE_PATH: &str = "files/";
+pub const FILES_PATH: &str = "files/";
 
 #[derive(Debug)]
 pub struct ResponseMessage<'a> {
@@ -27,16 +27,15 @@ impl<'a> ResponseMessage<'a> {
         let mut body = None;
 
         // Setup the files dir, just in case.
-        let file_path = Path::new(FILE_PATH);
-        if !file_path.exists() {
-            fs::create_dir(file_path).expect("Could not create files directory");
+        let files_path = Path::new(FILES_PATH);
+        if !files_path.exists() {
+            fs::create_dir(files_path).expect("Could not create files directory");
         }
 
         // Route the path.
-        let path = match router.match_path(request.get_control_line().get_path()) {
-            Some(p) => p,
-            None => "INVALID PATH",
-        };
+        let path = router
+            .match_path(request.get_control_line().get_path())
+            .unwrap_or("INVALID PATH");
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
@@ -48,7 +47,7 @@ impl<'a> ResponseMessage<'a> {
                     headers_table.push(Header::ContentDisposition("inline".to_string()));
                     headers_table.push(Header::ContentLength(file.len().to_string()));
                 } else {
-                    info!(target: "GET", "Path does not exist {:?}", path);
+                    println!("Path does not exist {:?}", path);
                     status_line_code = Some(CODE400);
                 }
             }
@@ -60,7 +59,7 @@ impl<'a> ResponseMessage<'a> {
                 match fs::exists(path) {
                     Ok(true) => {
                         if fs::write(path, contents.unwrap()).is_err() {
-                            info!(target: "PUT", "Path existed but could not write to path {:?}", path);
+                            println!("Path existed but could not write to path {:?}", path);
                             status_line_code = Some(CODE500);
                         } else {
                             status_line_code = Some(CODE200);
@@ -68,14 +67,14 @@ impl<'a> ResponseMessage<'a> {
                     }
                     Ok(false) => {
                         if fs::write(path, contents.unwrap()).is_err() {
-                            info!(target: "PUT", "Path did not exist and could not write to path {:?}", path);
+                            println!("Path did not exist and could not write to path {:?}", path);
                             status_line_code = Some(CODE501);
                         } else {
                             status_line_code = Some(CODE201);
                         }
                     }
                     Err(_) => {
-                        info!(target: "PUT", "Error finding path {:?}", path);
+                        println!("Error finding path {:?}", path);
                         status_line_code = Some(CODE500);
                     }
                 }

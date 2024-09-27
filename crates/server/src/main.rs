@@ -19,7 +19,7 @@ fn main() -> Result<(), MessageParseError> {
     router.connect("/", PathBuf::from("files/test_file.html"));
 
     let address = "127.0.0.1:8080";
-    println!("Opening listener on {} . . .", address);
+    println!("Opening listener on http://{} . . .", address);
     let stream = TcpListener::bind(address).expect("");
 
     for s in stream.incoming() {
@@ -35,7 +35,7 @@ fn main() -> Result<(), MessageParseError> {
         println!("Received:\n\n{:?}\n\n", request);
 
         let response = ResponseMessage::build_response(request, &router).expect("");
-        println!("Responded with:========\n\n{}=======", response);
+        println!("Responded with:\n========\n{}=======\n\n", response);
         handle.write_all(response.to_string().as_bytes()).expect("");
         handle.flush().expect("couldnt flush buffer");
     }
