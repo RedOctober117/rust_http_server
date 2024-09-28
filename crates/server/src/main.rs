@@ -7,12 +7,14 @@ use html_shared::method::HTTPMethod;
 use router::route::Route;
 use router::router::Router;
 use std::{
-    fs::OpenOptions,
+    fs::{File, OpenOptions},
     io::{Read, Write},
     net::TcpListener,
 };
 
 fn main() -> Result<(), MessageParseError> {
+    File::create("request.log").expect("Could not create request.log");
+
     let mut logs = OpenOptions::new()
         .append(true)
         .open("request.log")
@@ -35,7 +37,7 @@ fn main() -> Result<(), MessageParseError> {
             Err(_) => continue,
         };
         // println!("Received a stream: {:?}", &handle);
-        let mut buffer = [0; 512];
+        let mut buffer = [0; 8000];
         handle.read(&mut buffer).expect("");
 
         let _ = logs.write(&buffer);
