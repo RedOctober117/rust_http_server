@@ -22,7 +22,7 @@ fn main() -> Result<(), MessageParseError> {
 
     let mut router = Router::default();
 
-    router.connect_route(
+    router.connect_recursive_routes(
         Route(HTTPMethod::GET, "/".to_string()),
         "files/test_file.html".to_string(),
     );
@@ -36,8 +36,8 @@ fn main() -> Result<(), MessageParseError> {
             Ok(handle) => handle,
             Err(_) => continue,
         };
-        // println!("Received a stream: {:?}", &handle);
-        let mut buffer = [0; 8000];
+
+        let mut buffer = [0; 1000];
         handle.read(&mut buffer).expect("");
 
         let _ = logs.write(&buffer);

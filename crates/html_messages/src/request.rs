@@ -32,6 +32,10 @@ impl RequestMessage {
         let mut message: Option<String> = None;
 
         let request_as_string = str::from_utf8(request).unwrap().trim_matches('\0');
+        if request_as_string.is_empty() {
+            return Err(MessageParseError);
+        }
+
         let sections: Vec<&str> = request_as_string.split("\r\n\r\n").collect();
         let control_and_header: Vec<&str> = sections[0].split("\r\n").collect();
 
