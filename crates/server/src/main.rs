@@ -6,24 +6,24 @@ use html_messages::response::ResponseMessage;
 use html_shared::method::HTTPMethod;
 use router::route::Route;
 use router::router::Router;
-use std::path::PathBuf;
 use std::{
+    fs::OpenOptions,
     io::{Read, Write},
     net::TcpListener,
 };
 
 fn main() -> Result<(), MessageParseError> {
+    let mut logs = OpenOptions::new()
+        .append(true)
+        .open("request.log")
+        .expect("Cannot write to request.log");
+
     let mut router = Router::default();
 
-    router.connect(
+    router.connect_route(
         Route(HTTPMethod::GET, "/".to_string()),
-        PathBuf::from("files/test_file.html"),
+        "files/test_file.html".to_string(),
     );
-
-    // router.connect(
-    //     Route(HTTPMethod::GET, "/final".to_string()),
-    //     PathBuf::from("files/citc1300-final-master/index.html"),
-    // );
 
     let address = "127.0.0.1:8080";
     println!("Opening listener on http://{} . . .", address);
@@ -37,6 +37,9 @@ fn main() -> Result<(), MessageParseError> {
         // println!("Received a stream: {:?}", &handle);
         let mut buffer = [0; 512];
         handle.read(&mut buffer).expect("");
+
+        let _ = logs.write(&buffer);
+        let _ = logs.write("\n".as_bytes());
 
         let request = RequestMessage::parse_request(&buffer)?;
         println!("Received:\n\n{:?}\n\n", request);

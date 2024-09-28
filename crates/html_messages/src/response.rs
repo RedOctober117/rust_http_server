@@ -41,10 +41,11 @@ impl<'a> ResponseMessage<'a> {
         let route = Route(
             request.get_control_line().get_method(),
             request.get_control_line().get_path().to_string(),
+            // FILES_PATH.to_string(),
         );
 
         // Route the path.
-        let path = router.route(route).unwrap_or("INVALID PATH");
+        let path = router.get_abs_path(route).unwrap_or("INVALID PATH");
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
