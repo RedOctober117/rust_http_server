@@ -1,5 +1,13 @@
 // use server::{HttpSchemeEnum, Tag, Tokenizer, Uri};
 
+use async_std::{
+    io::{ReadExt, WriteExt},
+    net::TcpListener,
+    path::Path,
+    stream::StreamExt,
+    sync::RwLock,
+    task,
+};
 use html_messages::errors::MessageParseError;
 use html_messages::request::RequestMessage;
 use html_messages::response::ResponseMessage;
@@ -9,47 +17,58 @@ use router::router::Router;
 use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
-    net::TcpListener,
+    sync::Arc,
 };
 
-fn main() -> Result<(), MessageParseError> {
+#[async_std::main]
+async fn main() -> Result<(), MessageParseError> {
     File::create("request.log").expect("Could not create request.log");
 
-    let mut logs = OpenOptions::new()
-        .append(true)
-        .open("request.log")
-        .expect("Cannot write to request.log");
+    // let mut logs = OpenOptions::new()
+    //     .append(true)
+    //     .open("request.log")
+    //     .expect("Cannot write to request.log");
 
-    let mut router = Router::default();
+    let router = Arc::new(RwLock::new(Router::default()));
 
-    router.connect_recursive_routes(
+    router.write_blocking().connect_recursive_routes(
         Route(HTTPMethod::GET, "/".to_string()),
         "files/test_file.html".to_string(),
     );
 
     let address = "127.0.0.1:8080";
     println!("Opening listener on http://{} . . .", address);
-    let stream = TcpListener::bind(address).expect("");
+    let stream = TcpListener::bind(address).await.expect("");
+    let mut incoming = stream.incoming();
 
-    for s in stream.incoming() {
-        let mut handle = match s {
-            Ok(handle) => handle,
-            Err(_) => continue,
-        };
+    while let Some(s) = incoming.next().await {
+        let router_ptr = Arc::clone(&router);
+        task::spawn(async {
+            let mut handle = match s {
+                Ok(handle) => handle.clone(),
+                Err(_) => todo!(),
+            };
 
-        let mut buffer = [0; 1000];
-        handle.read(&mut buffer).expect("");
+            let mut buffer = [0; 1000];
+            handle.read(&mut buffer).await.expect("");
 
-        let _ = logs.write(&buffer);
-        let _ = logs.write("\n".as_bytes());
+            // let _ = logs.write(&buffer);
+            // let _ = logs.write("\n".as_bytes());
 
-        let request = RequestMessage::parse_request(&buffer)?;
-        println!("Received:\n\n{:?}\n\n", request);
+            let request = RequestMessage::parse_request(&buffer).unwrap();
+            println!("Received:\n\n{:?}\n\n", request);
 
-        let response = ResponseMessage::build_response(request, &router).expect("");
-        println!("Responded with:\n========\n{}=======\n\n", response);
-        handle.write_all(response.to_string().as_bytes()).expect("");
-        handle.flush().expect("couldnt flush buffer");
+            let response = ResponseMessage::build_response(request, router_ptr)
+                .await
+                .expect("");
+            println!("Responded with:\n========\n{}=======\n\n", response);
+            handle
+                .write_all(response.to_string().as_bytes())
+                .await
+                .expect("");
+            handle.flush().await.expect("couldnt flush buffer");
+        })
+        .await
     }
     Ok(())
 }

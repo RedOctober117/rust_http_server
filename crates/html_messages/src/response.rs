@@ -1,4 +1,6 @@
+use async_std::sync::RwLock;
 use core::fmt;
+use std::sync::Arc;
 // use log::info;
 use html_shared::header::Header;
 use html_shared::method::HTTPMethod;
@@ -11,6 +13,7 @@ use std::path::Path;
 
 use crate::errors::RequestGenerationError;
 use crate::request::*;
+use async_std;
 
 pub const FILES_PATH: &str = "files/";
 
@@ -22,9 +25,9 @@ pub struct ResponseMessage<'a> {
 }
 
 impl<'a> ResponseMessage<'a> {
-    pub fn build_response(
+    pub async fn build_response(
         request: RequestMessage,
-        router: &Router,
+        router: Arc<RwLock<Router>>,
     ) -> Result<Self, RequestGenerationError> {
         let status_line_protocol = request.get_control_line().get_protocol();
         let mut status_line_code: Option<StatusCodeEnum> = None;
@@ -44,8 +47,11 @@ impl<'a> ResponseMessage<'a> {
             // FILES_PATH.to_string(),
         );
 
+        let router_reference = router.read_arc().await;
         // Route the path.
-        let path = router.get_abs_path(route).unwrap_or("INVALID PATH");
+        let path = router_reference
+            .get_abs_path(route)
+            .unwrap_or("INVALID PATH");
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {

@@ -19,11 +19,14 @@ impl Router {
     /// Connects passed Route and all other items in the absolute_paths
     /// containing directory.
     pub fn connect_single_route(&mut self, canonical_route: Route, absolute_path: String) {
-        self.route_map.insert(canonical_route, absolute_path);
+        if !self.route_map.contains_key(&canonical_route) {
+            self.route_map.insert(canonical_route, absolute_path);
+        }
     }
 
     pub fn connect_recursive_routes(&mut self, canonical_route: Route, absolute_path: String) {
         let target = Path::new(&absolute_path);
+        self.connect_single_route(canonical_route.clone(), absolute_path.clone());
         if target.is_dir() {
             println!("target is dir");
             _ = self.map_directory(canonical_route.1.clone(), target);
