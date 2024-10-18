@@ -19,23 +19,26 @@ impl Router {
     /// Connects passed Route and all other items in the absolute_paths
     /// containing directory.
     pub fn connect_single_route(&mut self, canonical_route: Route, absolute_path: String) {
-        if !self.route_map.contains_key(&canonical_route) {
-            self.route_map.insert(canonical_route, absolute_path);
-        }
+        println!("Connecting {:?} to {:?}", canonical_route, absolute_path);
+        self.route_map.insert(canonical_route, absolute_path);
     }
 
     pub fn connect_recursive_routes(&mut self, canonical_route: Route, absolute_path: String) {
         let target = Path::new(&absolute_path);
-        self.connect_single_route(canonical_route.clone(), absolute_path.clone());
+
         if target.is_dir() {
             println!("target is dir");
             _ = self.map_directory(canonical_route.1.clone(), target);
         } else {
             let mut target_container = PathBuf::from(target);
             target_container.pop();
-            println!("target is not dir, popped to {:?}", target_container);
+            println!(
+                "target is not dir, popped up to container {:?}",
+                target_container
+            );
             _ = self.map_directory(canonical_route.1.clone(), &target_container);
         }
+        self.connect_single_route(canonical_route.clone(), absolute_path.clone());
     }
 
     pub fn get_abs_path(&self, route: Route) -> Option<&str> {
@@ -64,14 +67,12 @@ impl Router {
                 entry.file_name().to_str().unwrap()
             );
             if entry.path().is_dir() {
-                println!("Connecting {:?} to {:?}", new_canonical_route_prefix, entry);
                 self.connect_single_route(
                     Route(HTTPMethod::GET, new_canonical_route_prefix.clone()),
                     entry.path().to_str().unwrap().to_string(),
                 );
                 self.map_directory(new_canonical_route_prefix, entry.path().as_path())?;
             } else {
-                println!("Connecting {:?} to {:?}", new_canonical_route_prefix, entry);
                 self.connect_single_route(
                     Route(HTTPMethod::GET, new_canonical_route_prefix.clone()),
                     entry.path().to_str().unwrap().to_string(),

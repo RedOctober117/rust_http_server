@@ -164,6 +164,7 @@ impl<'a> StatusLine<'a> {
             status_code,
         }
     }
+
     pub fn status_code(&self) -> StatusCodeEnum {
         self.status_code
     }
