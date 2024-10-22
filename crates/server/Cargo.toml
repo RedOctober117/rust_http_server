@@ -8,3 +8,7 @@ log = "0.4.22"
 router = {path = "../router"}
 html_shared = {path = "../html_shared"}
 html_messages = {path="../html_messages"}
+
+[dependencies.async-std]
+version = "1.13.0"
+features = ["attributes"]

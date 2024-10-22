@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-std = "1.13.0"
 html_shared = {path="../html_shared"}
 router = {path="../router"}
