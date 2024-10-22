@@ -21,7 +21,7 @@ pub const FILES_PATH: &str = "files/";
 pub struct ResponseMessage<'a> {
     status_line: StatusLine<'a>,
     headers_table: Vec<Header>,
-    body: Option<String>,
+    body: Option<Vec<u8>>,
 }
 
 impl<'a> ResponseMessage<'a> {
@@ -55,15 +55,16 @@ impl<'a> ResponseMessage<'a> {
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
-                if let Ok(file) = fs::read_to_string(path) {
+                if let Ok(file) = fs::read(path) {
                     println!("Path already exists {:?}", path);
-                    body = Some(file.clone());
+                    let file_len = file.len();
+                    body = Some(file);
                     status_line_code = Some(CODE200);
                     headers_table.push(Header::ContentType("text/html; charset=utf-8".to_string()));
                     headers_table.push(Header::ContentDisposition("inline".to_string()));
-                    headers_table.push(Header::ContentLength(file.len().to_string()));
+                    headers_table.push(Header::ContentLength(file_len.to_string()));
                 } else {
-                    println!("Path does not exist {:?}", path);
+                    println!("Path does not exist or was not valid UTF-8 {:?}", path);
                     status_line_code = Some(CODE400);
                 }
             }
@@ -143,10 +144,7 @@ impl<'a> fmt::Display for ResponseMessage<'a> {
             self.status_line.protocol(),
             status_code,
             headers_as_string,
-            match &self.body {
-                Some(string) => string,
-                None => "",
-            }
+            "".to_string()
         )
     }
 }
