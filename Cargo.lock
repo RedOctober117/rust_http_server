@@ -7,6 +7,7 @@ name = "client"
 version = "0.1.0"
 
 [[package]]
+<<<<<<< HEAD
 name = "html_messages"
 version = "0.1.0"
 dependencies = [
@@ -19,6 +20,16 @@ name = "html_shared"
 version = "0.1.0"
 
 [[package]]
+=======
+name = "handler"
+version = "0.1.0"
+dependencies = [
+ "router",
+ "server",
+]
+
+[[package]]
+>>>>>>> feature/async
 name = "log"
 version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
