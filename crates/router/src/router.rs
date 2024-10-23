@@ -19,7 +19,7 @@ impl Router {
     /// Connects passed Route and all other items in the absolute_paths
     /// containing directory.
     pub fn connect_single_route(&mut self, canonical_route: Route, absolute_path: String) {
-        println!("Connecting {:?} to {:?}", canonical_route, absolute_path);
+        println!("Connecting {} to {}", canonical_route, absolute_path);
         self.route_map.insert(canonical_route, absolute_path);
     }
 

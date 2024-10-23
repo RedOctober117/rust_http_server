@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub enum Header {
     EMPTY,
     UserAgent(String),
@@ -32,5 +32,22 @@ impl fmt::Display for Header {
                 Header::ContentDisposition(value) => format!("Content-Disposition: {}", value),
             }
         )
+    }
+}
+
+impl PartialEq for Header {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::UserAgent(_), Self::UserAgent(_)) => true,
+            (Self::ContentType(_), Self::ContentType(_)) => true,
+            (Self::ContentLength(_), Self::ContentLength(_)) => true,
+            (Self::Host(_), Self::Host(_)) => true,
+            (Self::Accept(_), Self::Accept(_)) => true,
+            (Self::AcceptLanguage(_), Self::AcceptLanguage(_)) => true,
+            (Self::AcceptEncoding(_), Self::AcceptEncoding(_)) => true,
+            (Self::Referer(_), Self::Referer(_)) => true,
+            (Self::ContentDisposition(_), Self::ContentDisposition(_)) => true,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
     }
 }
