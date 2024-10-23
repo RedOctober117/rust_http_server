@@ -9,14 +9,14 @@
 
 use core::str;
 use html_shared::{header::Header, method::HTTPMethod, protocol::HTTPProtocol};
-use std::fmt::Display;
+use std::{collections::BTreeSet, fmt::Display};
 
 use crate::errors::MessageParseError;
 
 #[derive(Debug, Clone)]
 pub struct RequestMessage {
     control_data: ControlData,
-    headers_table: Option<Vec<Header>>,
+    headers_table: Option<BTreeSet<Header>>,
     message: Option<String>,
 }
 
@@ -28,7 +28,7 @@ impl RequestMessage {
             protocol: HTTPProtocol::Http1_1,
         };
 
-        let mut headers: Vec<Header> = vec![];
+        let mut headers: BTreeSet<Header> = BTreeSet::new();
         let mut message: Option<String> = None;
 
         let request_as_string = str::from_utf8(request).unwrap().trim_matches('\0');
@@ -76,16 +76,23 @@ impl RequestMessage {
         if control_and_header.len() > 1 {
             for header in header_items {
                 let split: Vec<_> = header.split(": ").collect();
+                println!("split 0: {}", header);
 
                 match split[0] {
-                    "User-Agent" => headers.push(Header::UserAgent(split[1].to_string())),
-                    "Content-Type" => headers.push(Header::ContentType(split[1].to_string())),
-                    "Content-Length" => headers.push(Header::ContentLength(split[1].to_string())),
-                    "Host" => headers.push(Header::Host(split[1].to_string())),
-                    "Accept" => headers.push(Header::Accept(split[1].to_string())),
-                    "Accept-Language" => headers.push(Header::AcceptLanguage(split[1].to_string())),
-                    "Accept-Encoding" => headers.push(Header::AcceptEncoding(split[1].to_string())),
-                    "Referer" => headers.push(Header::Referer(split[1].to_string())),
+                    "User-Agent" => _ = headers.insert(Header::UserAgent(split[1].to_string())),
+                    "Content-Type" => _ = headers.insert(Header::ContentType(split[1].to_string())),
+                    "Content-Length" => {
+                        _ = headers.insert(Header::ContentLength(split[1].to_string()))
+                    }
+                    "Host" => _ = headers.insert(Header::Host(split[1].to_string())),
+                    "Accept" => _ = headers.insert(Header::Accept(split[1].to_string())),
+                    "Accept-Language" => {
+                        _ = headers.insert(Header::AcceptLanguage(split[1].to_string()))
+                    }
+                    "Accept-Encoding" => {
+                        _ = headers.insert(Header::AcceptEncoding(split[1].to_string()))
+                    }
+                    "Referer" => _ = headers.insert(Header::Referer(split[1].to_string())),
                     // &_ => continue,
                     &_ => println!("IMPLEMENT REQUEST::HEADERS::HEADER {}", split[0]),
                 }
@@ -119,6 +126,13 @@ impl RequestMessage {
             Some(body.as_str())
         } else {
             None
+        }
+    }
+
+    pub fn get_headers_table(&self) -> Option<&BTreeSet<Header>> {
+        match &self.headers_table {
+            Some(table) => Some(&table),
+            None => None,
         }
     }
 }

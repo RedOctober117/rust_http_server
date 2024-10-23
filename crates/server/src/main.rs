@@ -3,7 +3,6 @@
 use async_std::{
     io::{ReadExt, WriteExt},
     net::TcpListener,
-    path::Path,
     stream::StreamExt,
     sync::RwLock,
     task,
@@ -14,11 +13,7 @@ use html_messages::response::ResponseMessage;
 use html_shared::method::HTTPMethod;
 use router::route::Route;
 use router::router::Router;
-use std::{
-    fs::{File, OpenOptions},
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::{ fs::File, sync::Arc};
 
 #[async_std::main]
 async fn main() -> Result<(), MessageParseError> {

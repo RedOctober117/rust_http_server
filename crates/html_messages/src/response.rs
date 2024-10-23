@@ -21,7 +21,7 @@ pub const FILES_PATH: &str = "files/";
 pub struct ResponseMessage<'a> {
     status_line: StatusLine<'a>,
     headers_table: Vec<Header>,
-    body: Option<Vec<u8>>,
+    body: Option<String>,
 }
 
 impl<'a> ResponseMessage<'a> {
@@ -55,12 +55,35 @@ impl<'a> ResponseMessage<'a> {
 
         match request.get_control_line().get_method() {
             HTTPMethod::GET => {
-                if let Ok(file) = fs::read(path) {
+                if let Ok(file) = async_std::fs::read(path).await {
                     println!("Path already exists {:?}", path);
-                    let file_len = file.len();
-                    body = Some(file);
+                    let file_ext = Path::new(path).extension().unwrap();
+                    println!("extension: {:?}", file_ext);
+
+                    // TODO: match content type by request Accept header
+
+                    // let dummy_header = Header::Accept("".to_string());
+                    // if let Some(header) = request.get_headers_table().unwrap().get(&dummy_header) {
+                    //     match header {
+                    //         Header::Accept(list) => {
+                    //             if !list.contains(file_ext.to_str().unwrap()) {
+                    //                 status_line_code = Some(CODE400);
+                    //             }
+                    //         }
+                    //         _ => todo!(),
+                    //     }
+                    // }
+
+                    let mut file_buffer = String::new();
+                    for item in &file {
+                        file_buffer.push(char::from(item.clone()));
+                    }
+
+                    let file_len = file_buffer.len();
+                    body = Some(file_buffer);
+
                     status_line_code = Some(CODE200);
-                    headers_table.push(Header::ContentType("text/html; charset=utf-8".to_string()));
+                    // headers_table.push(Header::ContentType("text/html; charset=utf-8".to_string()));
                     headers_table.push(Header::ContentDisposition("inline".to_string()));
                     headers_table.push(Header::ContentLength(file_len.to_string()));
                 } else {
@@ -144,7 +167,10 @@ impl<'a> fmt::Display for ResponseMessage<'a> {
             self.status_line.protocol(),
             status_code,
             headers_as_string,
-            "".to_string()
+            match &self.body {
+                Some(v) => v.to_owned(),
+                None => "".to_string(),
+            }
         )
     }
 }
